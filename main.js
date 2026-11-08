@@ -131,7 +131,7 @@ function buildDeepSeekPatch(model) {
 /** 生成自定义 OpenAI 兼容 provider patch（pi-ai 适配器 + 默认模型指向） */
 function buildCustomPatch(baseURL, modelId) {
   return [
-    `- name: '@deepseek-ai/dsh-llm-pi-ai'`,
+    `- id: llm-pi-ai`,
     `  config:`,
     `    providers:`,
     `      custom:`,
@@ -181,6 +181,7 @@ function verifyApiKey(apiKey, baseURL) {
     }, (res) => {
       res.resume();
       res.on('end', () => {
+        log('[login] verify HTTP', res.statusCode, 'for', hostname);
         switch (res.statusCode) {
           case 200: return resolve({ ok: true });
           case 401: return resolve({ ok: false, error: 'API Key 无效或已过期（401），请检查后重试' });
@@ -190,8 +191,8 @@ function verifyApiKey(apiKey, baseURL) {
         }
       });
     });
-    req.on('timeout', () => { req.destroy(new Error('timeout')); });
-    req.on('error', (e) => resolve({ ok: false, error: '无法连接 API：' + e.message }));
+    req.on('timeout', () => { log('[login] verify timeout'); req.destroy(new Error('timeout')); });
+    req.on('error', (e) => { log('[login] verify error:', e.message); resolve({ ok: false, error: '无法连接 API：' + e.message }); });
     req.end();
   });
 }
@@ -346,7 +347,8 @@ ipcMain.handle('dsh:login', async (_e, payload) => {
 
     try {
       const url = await startDsh(buildCustomPatch(baseURL, modelId), { CUSTOM_API_KEY: apiKey });
-      return { ok: true, url };
+      if (mainWindow) mainWindow.loadURL(url); // 主进程导航，确保 token cookie 正确写入
+      return { ok: true };
     } catch (err) {
       log('[login] 启动 dsh 失败：', err.message);
       return { ok: false, error: '启动失败：' + err.message };
@@ -368,7 +370,8 @@ ipcMain.handle('dsh:login', async (_e, payload) => {
 
   try {
     const url = await startDsh(buildDeepSeekPatch(model), { DEEPSEEK_API_KEY: keyToUse });
-    return { ok: true, url };
+    if (mainWindow) mainWindow.loadURL(url); // 主进程导航，确保 token cookie 正确写入
+    return { ok: true };
   } catch (err) {
     log('[login] 启动 dsh 失败：', err.message);
     return { ok: false, error: '启动失败：' + err.message };

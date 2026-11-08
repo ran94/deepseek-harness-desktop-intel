@@ -232,8 +232,7 @@
       const res = await window.dshDesktop.login(payload);
       if (res && res.ok) {
         setStatus('验证通过，正在进入…', 'ok');
-        // 进入 dsh 主界面
-        window.location.href = res.url;
+        // 主进程会通过 loadURL 自动导航到 dsh 主界面（保证 token cookie 正确写入）
       } else {
         setStatus((res && res.error) || '登录失败', 'err');
         btn.disabled = false;
