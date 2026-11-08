@@ -23,6 +23,7 @@
     "appId": "com.intel.deepseek-harness-desktop",
     "productName": "DeepSeek Harness",
     "asar": false,
+    "afterPack": "scripts/after-pack.js",
     "directories": {
       "output": "dist"
     },

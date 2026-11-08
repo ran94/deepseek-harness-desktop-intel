@@ -34,6 +34,10 @@ let dshProc = null;
 let mainWindow = null;
 let resolvedUrl = null;
 
+// 性能优化：窗口后台时禁止渲染进程降频/暂停，保持界面切换流畅、响应即时
+app.commandLine.appendSwitch('disable-renderer-backgrounding');
+app.commandLine.appendSwitch('disable-background-timer-throttling');
+
 function log(...args) {
   const line = `[${new Date().toISOString()}] ${args.map(String).join(' ')}`;
   console.log(line);
