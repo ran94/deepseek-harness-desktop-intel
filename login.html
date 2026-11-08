@@ -3,203 +3,182 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>DeepSeek Harness · 启动</title>
+<title>DeepSeek Harness</title>
 <style>
   :root {
-    /* 配色规范：深空底色 + 霓虹蓝 / 电光紫荧光 */
-    --bg-0: #030509;
-    --bg-1: #060a14;
-    --bg-panel: rgba(13, 20, 40, 0.62);
-    --cyan: #00d4ff;      /* 霓虹蓝（主） */
-    --violet: #8b5cf6;    /* 电光紫（辅） */
-    --cyan-soft: #22d3ee;
-    --violet-soft: #a78bfa;
-    --text: #e6edf7;
-    --muted: #7f8aa3;
-    --danger: #ff5c7a;
-    --ok: #34e2a4;
-    --border: rgba(0, 212, 255, 0.22);
+    /* 蓝白黑单色体系 —— 克制、沉浸 */
+    --black: #000000;
+    --bg: #04060b;
+    --blue: #3b82f6;
+    --blue-bright: #60a5fa;
+    --blue-dim: rgba(59, 130, 246, 0.14);
+    --white: #ffffff;
+    --white-80: rgba(255, 255, 255, 0.8);
+    --white-55: rgba(255, 255, 255, 0.55);
+    --white-30: rgba(255, 255, 255, 0.3);
+    --line: rgba(59, 130, 246, 0.10);
+    --border: rgba(59, 130, 246, 0.28);
+    --danger: #f87171;
   }
   * { margin: 0; padding: 0; box-sizing: border-box; }
   html, body { height: 100%; }
   body {
     font-family: -apple-system, "SF Pro Text", "PingFang SC", "Helvetica Neue", sans-serif;
-    background: radial-gradient(1200px 800px at 70% -10%, #101736 0%, var(--bg-0) 55%);
-    color: var(--text);
+    background: var(--bg);
+    color: var(--white);
     overflow: hidden;
     user-select: none;
     -webkit-font-smoothing: antialiased;
   }
 
-  /* —— 网格背景 —— */
+  /* 环境光：单一蓝色、极淡、大面积，营造深邃空间（非装饰性渐变） */
+  .ambient {
+    position: fixed; inset: 0; z-index: 0; pointer-events: none;
+    background: radial-gradient(ellipse 60% 50% at 50% 0%, rgba(59,130,246,0.10), transparent 70%);
+  }
+  /* 抽象网格（远层） */
   .grid {
     position: fixed; inset: 0; z-index: 0; pointer-events: none;
     background-image:
-      linear-gradient(rgba(0,212,255,0.055) 1px, transparent 1px),
-      linear-gradient(90deg, rgba(0,212,255,0.055) 1px, transparent 1px);
-    background-size: 46px 46px;
-    mask-image: radial-gradient(ellipse 95% 85% at 50% 40%, #000 25%, transparent 100%);
-    -webkit-mask-image: radial-gradient(ellipse 95% 85% at 50% 40%, #000 25%, transparent 100%);
+      linear-gradient(var(--line) 1px, transparent 1px),
+      linear-gradient(90deg, var(--line) 1px, transparent 1px);
+    background-size: 52px 52px;
+    mask-image: radial-gradient(ellipse 90% 80% at 50% 42%, #000 20%, transparent 100%);
+    -webkit-mask-image: radial-gradient(ellipse 90% 80% at 50% 42%, #000 20%, transparent 100%);
   }
-  /* —— 全息投影光晕 —— */
-  .glow {
-    position: fixed; z-index: 0; pointer-events: none; border-radius: 50%;
-    filter: blur(90px); opacity: 0.5;
+  /* 同心圆（抽象几何，极淡） */
+  .orbit {
+    position: fixed; left: 50%; top: 50%; z-index: 0; pointer-events: none;
+    border: 1px solid rgba(59,130,246,0.06); border-radius: 50%;
+    transform: translate(-50%, -50%);
   }
-  .glow.cyan { width: 520px; height: 520px; left: -140px; top: -120px; background: radial-gradient(circle, rgba(0,212,255,0.55), transparent 70%); }
-  .glow.violet { width: 560px; height: 560px; right: -160px; bottom: -140px; background: radial-gradient(circle, rgba(139,92,246,0.5), transparent 70%); }
+  .o1 { width: 480px; height: 480px; }
+  .o2 { width: 760px; height: 760px; }
+  .o3 { width: 1080px; height: 1080px; }
 
-  /* —— 扫描线 —— */
+  /* 扫描线（近层，极淡蓝） */
   .scanline {
     position: fixed; left: 0; right: 0; height: 1px; z-index: 1; pointer-events: none;
-    background: linear-gradient(90deg, transparent, var(--cyan), transparent);
-    box-shadow: 0 0 12px rgba(0,212,255,0.6);
-    opacity: 0.5; animation: scan 7s linear infinite;
+    background: rgba(59,130,246,0.35); opacity: 0.4;
+    animation: scan 9s linear infinite;
   }
   @keyframes scan { 0% { top: -2%; } 100% { top: 102%; } }
 
   #particles { position: fixed; inset: 0; z-index: 1; pointer-events: none; }
 
-  /* —— 中央布局 —— */
+  /* —— 中央布局，大量留白 —— */
   .stage {
     position: relative; z-index: 3; height: 100%;
     display: flex; flex-direction: column; align-items: center; justify-content: center;
-    gap: 24px; padding: 24px;
+    gap: 40px; padding: 40px;
   }
-  .brand { display: flex; flex-direction: column; align-items: center; gap: 8px; animation: rise .8s cubic-bezier(.2,.8,.2,1); }
+  .brand { display: flex; flex-direction: column; align-items: center; gap: 18px; animation: rise .9s cubic-bezier(.2,.8,.2,1); }
   .brand .logo {
-    font-size: 60px; font-weight: 800; letter-spacing: 14px;
+    font-size: 56px; font-weight: 700; letter-spacing: 22px; text-indent: 22px;
     font-family: "SF Mono", "Menlo", "Consolas", monospace;
-    background: linear-gradient(105deg, var(--cyan) 0%, var(--cyan-soft) 40%, var(--violet) 100%);
-    -webkit-background-clip: text; background-clip: text; color: transparent;
-    filter: drop-shadow(0 0 24px rgba(0,212,255,0.45));
+    color: var(--white);
   }
-  .brand .sub { color: var(--muted); font-size: 12px; letter-spacing: 5px; text-transform: uppercase; }
-  .brand .sub b { color: var(--cyan); font-weight: 500; }
+  .brand .rule { width: 56px; height: 1px; background: var(--blue); box-shadow: 0 0 8px rgba(59,130,246,0.7); }
+  .brand .sub { color: var(--white-55); font-size: 11px; letter-spacing: 5px; text-transform: uppercase; }
 
-  /* —— 玻璃拟态卡片 —— */
+  /* —— 黑玻璃卡片 —— */
   .card {
     width: 372px; max-width: 92vw; position: relative;
-    background: var(--bg-panel);
+    background: rgba(8, 12, 20, 0.66);
     border: 1px solid var(--border);
-    border-radius: 20px; padding: 28px 28px 22px;
-    backdrop-filter: blur(18px); -webkit-backdrop-filter: blur(18px);
-    box-shadow: 0 0 0 1px rgba(255,255,255,0.03) inset, 0 24px 70px rgba(0,0,0,0.5), 0 0 60px rgba(0,212,255,0.07);
-    animation: rise .8s cubic-bezier(.2,.8,.2,1) .1s both;
+    border-radius: 14px; padding: 34px 32px 28px;
+    backdrop-filter: blur(22px) saturate(1.2); -webkit-backdrop-filter: blur(22px) saturate(1.2);
+    box-shadow: 0 24px 70px rgba(0,0,0,0.6), 0 0 0 1px rgba(255,255,255,0.02) inset;
+    animation: rise .9s cubic-bezier(.2,.8,.2,1) .12s both;
   }
-  .card::before {
-    content: ''; position: absolute; top: -1px; left: 12%; right: 12%; height: 1px;
-    background: linear-gradient(90deg, transparent, var(--cyan), var(--violet), transparent);
-    opacity: 0.8;
-  }
-  @keyframes rise { from { opacity: 0; transform: translateY(18px); } to { opacity: 1; transform: none; } }
+  @keyframes rise { from { opacity: 0; transform: translateY(20px); } to { opacity: 1; transform: none; } }
 
-  /* —— HUD 四角标记 —— */
-  .corner { position: absolute; width: 16px; height: 16px; pointer-events: none; opacity: 0.9; }
-  .corner::before, .corner::after { content: ''; position: absolute; background: var(--cyan); box-shadow: 0 0 8px rgba(0,212,255,0.7); }
-  .corner::before { width: 16px; height: 1.5px; }
-  .corner::after { width: 1.5px; height: 16px; }
-  .corner.tl { top: 6px; left: 6px; } .corner.tl::before { top: 0; left: 0; } .corner.tl::after { top: 0; left: 0; }
-  .corner.tr { top: 6px; right: 6px; } .corner.tr::before { top: 0; right: 0; } .corner.tr::after { top: 0; right: 0; }
-  .corner.bl { bottom: 6px; left: 6px; } .corner.bl::before { bottom: 0; left: 0; } .corner.bl::after { bottom: 0; left: 0; }
-  .corner.br { bottom: 6px; right: 6px; } .corner.br::before { bottom: 0; right: 0; } .corner.br::after { bottom: 0; right: 0; }
+  /* HUD 四角 */
+  .corner { position: absolute; width: 14px; height: 14px; pointer-events: none; }
+  .corner::before, .corner::after { content: ''; position: absolute; background: var(--blue); }
+  .corner::before { width: 14px; height: 1px; }
+  .corner::after { width: 1px; height: 14px; }
+  .corner.tl { top: 7px; left: 7px; } .corner.tl::before { top: 0; left: 0; } .corner.tl::after { top: 0; left: 0; }
+  .corner.tr { top: 7px; right: 7px; } .corner.tr::before { top: 0; right: 0; } .corner.tr::after { top: 0; right: 0; }
+  .corner.bl { bottom: 7px; left: 7px; } .corner.bl::before { bottom: 0; left: 0; } .corner.bl::after { bottom: 0; left: 0; }
+  .corner.br { bottom: 7px; right: 7px; } .corner.br::before { bottom: 0; right: 0; } .corner.br::after { bottom: 0; right: 0; }
 
-  /* —— 动态数据流（背景垂直光带） —— */
-  .dataflow { position: fixed; top: -10%; width: 2px; height: 120%; z-index: 1; pointer-events: none;
-    background: linear-gradient(180deg, transparent, rgba(0,212,255,0.5), rgba(139,92,246,0.4), transparent);
-    filter: blur(1px); }
-  .df1 { left: 18%; animation: flow 9s linear infinite; }
-  .df2 { left: 82%; animation: flow 12s linear infinite 2s; }
-  .df3 { left: 50%; animation: flow 15s linear infinite 5s; opacity: 0.5; }
-  @keyframes flow { 0% { transform: translateY(-10%); } 100% { transform: translateY(10%); } }
-
-  .field { margin-bottom: 16px; }
-  .field label { display: block; font-size: 11.5px; color: var(--muted); margin-bottom: 7px; letter-spacing: 1.5px; }
+  .field { margin-bottom: 20px; }
+  .field label { display: block; font-size: 10.5px; color: var(--white-55); margin-bottom: 8px; letter-spacing: 2px; text-transform: uppercase; }
   .field input, .field select {
     width: 100%; height: 44px;
-    background: rgba(4, 8, 18, 0.75);
-    border: 1px solid rgba(0, 212, 255, 0.2);
-    border-radius: 11px; color: var(--text); font-size: 14px; padding: 0 13px;
-    outline: none; transition: border-color .25s, box-shadow .25s;
+    background: rgba(0, 0, 0, 0.55);
+    border: 1px solid rgba(59, 130, 246, 0.18);
+    border-radius: 8px; color: var(--white); font-size: 14px; padding: 0 14px;
+    outline: none; transition: border-color .2s, box-shadow .2s;
   }
-  .field input:hover, .field select:hover { border-color: rgba(0,212,255,0.45); }
+  .field input::placeholder { color: var(--white-30); }
+  .field input:hover, .field select:hover { border-color: rgba(59,130,246,0.4); }
   .field input:focus, .field select:focus {
-    border-color: var(--cyan);
-    box-shadow: 0 0 0 3px rgba(0,212,255,0.16), 0 0 18px rgba(0,212,255,0.2);
+    border-color: var(--blue);
+    box-shadow: 0 0 0 3px rgba(59,130,246,0.15), 0 0 22px rgba(59,130,246,0.2);
   }
   .field select { appearance: none; cursor: pointer; }
-  .field select option { background: #0a1224; color: var(--text); }
+  .field select option { background: #0a0f1a; color: var(--white); }
 
+  /* 按钮：蓝色描边 → hover 填充（克制、科技） */
   .btn {
-    width: 100%; height: 46px; margin-top: 4px; position: relative;
-    border: none; border-radius: 11px; cursor: pointer;
-    font-size: 15px; font-weight: 600; letter-spacing: 3px; color: #fff;
-    background: linear-gradient(100deg, var(--violet), var(--cyan));
-    box-shadow: 0 0 22px rgba(0,212,255,0.35);
-    overflow: hidden; transition: transform .15s, box-shadow .25s, filter .25s;
+    width: 100%; height: 46px; margin-top: 6px;
+    background: transparent;
+    border: 1px solid var(--blue); border-radius: 8px; cursor: pointer;
+    font-size: 14px; font-weight: 500; letter-spacing: 4px; color: var(--white);
+    transition: background .25s, box-shadow .25s, transform .12s;
   }
-  .btn::after {
-    content: ''; position: absolute; inset: 0;
-    background: linear-gradient(110deg, transparent 30%, rgba(255,255,255,0.35) 50%, transparent 70%);
-    transform: translateX(-120%); transition: transform .6s;
-  }
-  .btn:hover { box-shadow: 0 0 34px rgba(139,92,246,0.55); filter: brightness(1.08); }
-  .btn:hover::after { transform: translateX(120%); }
+  .btn:hover { background: var(--blue); box-shadow: 0 0 28px rgba(59,130,246,0.45); }
   .btn:active { transform: scale(0.98); }
-  .btn:disabled { opacity: 0.5; cursor: not-allowed; filter: none; }
+  .btn:disabled { opacity: 0.45; cursor: not-allowed; }
 
-  .status { margin-top: 14px; font-size: 12.5px; text-align: center; min-height: 18px; }
+  .status { margin-top: 16px; font-size: 12.5px; text-align: center; min-height: 18px; color: var(--white-55); }
   .status.err { color: var(--danger); }
-  .status.ok { color: var(--ok); }
-  .status.busy { color: var(--cyan); }
+  .status.busy { color: var(--blue-bright); }
 
-  .hint { margin-top: 12px; font-size: 11px; color: var(--muted); line-height: 1.6; text-align: center; }
-  .hint a { color: var(--cyan); text-decoration: none; }
+  .hint { margin-top: 16px; font-size: 11px; color: var(--white-40); line-height: 1.7; text-align: center; }
+  .hint a { color: var(--blue-bright); text-decoration: none; }
 
   .spinner {
     display: inline-block; width: 13px; height: 13px; margin-right: 6px;
-    border: 2px solid rgba(255,255,255,0.3); border-top-color: #fff;
+    border: 2px solid rgba(255,255,255,0.25); border-top-color: #fff;
     border-radius: 50%; animation: spin .7s linear infinite; vertical-align: -2px;
   }
   @keyframes spin { to { transform: rotate(360deg); } }
 
-  /* —— 加载遮罩（登录成功后） —— */
+  /* 加载遮罩 */
   #loading {
     position: fixed; inset: 0; z-index: 10; display: none;
-    flex-direction: column; align-items: center; justify-content: center; gap: 28px;
-    background: radial-gradient(1000px 700px at 50% 45%, #0c1430 0%, var(--bg-0) 60%);
+    flex-direction: column; align-items: center; justify-content: center; gap: 30px;
+    background: var(--bg);
   }
   #loading.show { display: flex; }
   .ring {
-    width: 88px; height: 88px; border-radius: 50%; position: relative;
-    border: 2px solid rgba(0,212,255,0.15);
-    border-top-color: var(--cyan); border-right-color: var(--violet);
-    animation: spin 1s linear infinite;
-    box-shadow: 0 0 40px rgba(0,212,255,0.25);
+    width: 72px; height: 72px; border-radius: 50%; position: relative;
+    border: 1px solid rgba(59,130,246,0.25);
+    border-top-color: var(--blue);
+    animation: spin 1.1s linear infinite;
+    box-shadow: 0 0 36px rgba(59,130,246,0.2);
   }
-  .ring::after {
-    content: ''; position: absolute; inset: 12px; border-radius: 50%;
-    border: 2px solid rgba(139,92,246,0.2); border-bottom-color: var(--violet);
-    animation: spin 1.6s linear infinite reverse;
-  }
-  #loading .ltxt { color: var(--cyan); font-size: 13px; letter-spacing: 4px; text-shadow: 0 0 12px rgba(0,212,255,0.6); }
-  #loading .lsmall { color: var(--muted); font-size: 11px; letter-spacing: 2px; }
+  #loading .ltxt { color: var(--white-80); font-size: 12px; letter-spacing: 5px; }
+  #loading .lsmall { color: var(--white-40); font-size: 11px; letter-spacing: 2px; }
 </style>
 </head>
 <body>
+  <div class="ambient"></div>
   <div class="grid"></div>
-  <div class="glow cyan"></div>
-  <div class="glow violet"></div>
+  <div class="orbit o1"></div>
+  <div class="orbit o2"></div>
+  <div class="orbit o3"></div>
   <div class="scanline"></div>
-  <div class="dataflow df1"></div>
-  <div class="dataflow df2"></div>
-  <div class="dataflow df3"></div>
   <canvas id="particles"></canvas>
 
   <div class="stage">
     <div class="brand">
       <div class="logo">DSH</div>
-      <div class="sub">DeepSeek Harness · <b>Intel Edition</b></div>
+      <div class="rule"></div>
+      <div class="sub">DeepSeek Harness · Intel</div>
     </div>
 
     <div class="card">
@@ -213,13 +192,13 @@
           <input id="username" type="text" placeholder="标识你的会话身份" autocomplete="username">
         </div>
         <div class="field">
-          <label>API KEY（所选提供商）</label>
+          <label>API Key</label>
           <input id="apiKey" type="password" placeholder="sk-..." autocomplete="new-password">
         </div>
         <div class="field">
           <label>基础模型</label>
           <select id="model">
-            <option value="deepseek-v4-pro">deepseek-v4-pro · 深度推理（推荐）</option>
+            <option value="deepseek-v4-pro">deepseek-v4-pro · 深度推理</option>
             <option value="deepseek-v4-flash">deepseek-v4-flash · 快速响应</option>
             <option value="deepseek-flash">deepseek-flash · V4.1 Flash</option>
             <option value="__custom__">自定义 OpenAI 兼容模型…</option>
@@ -227,19 +206,19 @@
         </div>
         <div id="customFields" style="display:none">
           <div class="field">
-            <label>BASE URL（OpenAI 兼容端点）</label>
+            <label>Base URL</label>
             <input id="baseURL" type="text" placeholder="https://api.openai.com/v1">
           </div>
           <div class="field">
             <label>模型 ID</label>
-            <input id="modelId" type="text" placeholder="gpt-4o / moonshot-v1-8k / qwen-plus / ...">
+            <input id="modelId" type="text" placeholder="gpt-4o / qwen-plus / ...">
           </div>
         </div>
-        <button class="btn" id="loginBtn" type="submit">验证并进入</button>
+        <button class="btn" id="loginBtn" type="submit">进入</button>
         <div class="status" id="status"></div>
         <div class="hint">
-          API Key 从 <a href="#" id="openPlatform">platform.deepseek.com</a> 获取并充值。<br>
-          Key 仅保存在本机，不会上传。
+          API Key 从 <a href="#" id="openPlatform">platform.deepseek.com</a> 获取。<br>
+          仅保存在本机，不会上传。
         </div>
       </form>
     </div>
@@ -248,7 +227,7 @@
   <div id="loading">
     <div class="ring"></div>
     <div class="ltxt">初始化 DEEPSEEK HARNESS</div>
-    <div class="lsmall" id="loadSmall">正在加载插件…</div>
+    <div class="lsmall" id="loadSmall">正在加载…</div>
   </div>
 
 <script>
@@ -263,12 +242,10 @@
     e.preventDefault();
     if (window.dshDesktop && window.dshDesktop.openExternal) window.dshDesktop.openExternal('https://platform.deepseek.com');
   });
-
   $('model').addEventListener('change', () => {
     $('customFields').style.display = $('model').value === '__custom__' ? 'block' : 'none';
   });
 
-  // 预填已保存配置
   (async () => {
     try {
       if (window.dshDesktop && window.dshDesktop.getConfig) {
@@ -280,12 +257,10 @@
             $('customFields').style.display = 'block';
             if (cfg.baseURL) $('baseURL').value = cfg.baseURL;
             if (cfg.model) $('modelId').value = cfg.model;
-          } else if (cfg.model) {
-            $('model').value = cfg.model;
-          }
+          } else if (cfg.model) { $('model').value = cfg.model; }
           if (cfg.hasKey) {
             hasSavedKey = true;
-            $('apiKey').placeholder = '已保存 Key（留空则复用，输入则覆盖）';
+            $('apiKey').placeholder = '已保存 Key（留空则复用）';
           }
         }
       }
@@ -294,7 +269,7 @@
 
   async function doLogin(payload) {
     btn.disabled = true;
-    setStatus('<span class="spinner"></span>正在验证 API Key 并初始化…', 'busy');
+    setStatus('<span class="spinner"></span>正在验证…', 'busy');
     try {
       const res = await window.dshDesktop.login(payload);
       if (res && res.ok) {
@@ -316,7 +291,6 @@
     const apiKey = $('apiKey').value.trim();
     const model = $('model').value;
     const isCustom = model === '__custom__';
-
     if (!username) { setStatus('请输入用户名', 'err'); return; }
     if (!apiKey && !hasSavedKey) { setStatus('请输入 API Key', 'err'); return; }
     if (isCustom) {
@@ -330,30 +304,28 @@
     doLogin({ providerType: 'deepseek', username, apiKey, model });
   });
 
-  // —— 粒子 + 连线光效 ——
+  // 粒子：纯蓝、稀疏、克制
   (function particles() {
     const c = $('particles'), ctx = c.getContext('2d');
     let W, H, pts = [];
     function resize() { W = c.width = innerWidth; H = c.height = innerHeight; }
     resize(); addEventListener('resize', resize);
-    const N = 70;
-    for (let i = 0; i < N; i++) {
-      pts.push({ x: Math.random()*innerWidth, y: Math.random()*innerHeight, vx:(Math.random()-.5)*.3, vy:(Math.random()-.5)*.3, r: Math.random()*1.7+.5, c: Math.random() < .5 ? '0,212,255' : '139,92,246' });
-    }
+    const N = 45;
+    for (let i = 0; i < N; i++) pts.push({ x: Math.random()*innerWidth, y: Math.random()*innerHeight, vx:(Math.random()-.5)*.2, vy:(Math.random()-.5)*.2, r: Math.random()*1.4+.4 });
     (function draw() {
       ctx.clearRect(0,0,W,H);
       for (const p of pts) {
         p.x += p.vx; p.y += p.vy;
         if (p.x<0||p.x>W) p.vx*=-1; if (p.y<0||p.y>H) p.vy*=-1;
         ctx.beginPath(); ctx.arc(p.x,p.y,p.r,0,Math.PI*2);
-        ctx.fillStyle = `rgba(${p.c},0.55)`; ctx.fill();
+        ctx.fillStyle = 'rgba(96,165,250,0.35)'; ctx.fill();
       }
       for (let i=0;i<N;i++) for (let j=i+1;j<N;j++) {
         const a=pts[i], b=pts[j], dx=a.x-b.x, dy=a.y-b.y, d=dx*dx+dy*dy;
-        if (d < 120*120) {
+        if (d < 100*100) {
           ctx.beginPath(); ctx.moveTo(a.x,a.y); ctx.lineTo(b.x,b.y);
-          ctx.strokeStyle = `rgba(0,212,255,${0.13*(1-d/(120*120))})`;
-          ctx.lineWidth = 0.6; ctx.stroke();
+          ctx.strokeStyle = `rgba(59,130,246,${0.09*(1-d/(100*100))})`;
+          ctx.lineWidth = 0.5; ctx.stroke();
         }
       }
       requestAnimationFrame(draw);

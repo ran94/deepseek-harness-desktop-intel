@@ -312,17 +312,17 @@ function startDsh(patchContent, extraEnv, username) {
  */
 const SCI_FI_THEME_CSS = `
   :root, body {
-    --dsw-alias-brand-primary: #00d4ff;
-    --dsw-alias-brand-primary-invert: #03131a;
-    --dsw-alias-button-primary-fill: #0e7490;
-    --dsw-alias-button-primary-hover: #00d4ff;
-    --dsw-alias-button-primary-dimmed: #155e75;
-    --dsw-alias-state-business-primary: #00d4ff;
-    --dsw-alias-state-business-tertiary: #8b5cf6;
-    --dsw-alias-onboarding-accent: #8b5cf6;
-    --dsw-alias-interactive-bg-hover-accent: rgba(0, 212, 255, 0.12);
-    --dsw-focus-ring-color: #00d4ff;
-    --dsw-alias-label-primary-bluish: #7dd3fc;
+    --dsw-alias-brand-primary: #3b82f6;
+    --dsw-alias-brand-primary-invert: #0a1020;
+    --dsw-alias-button-primary-fill: #2563eb;
+    --dsw-alias-button-primary-hover: #3b82f6;
+    --dsw-alias-button-primary-dimmed: #1e40af;
+    --dsw-alias-state-business-primary: #3b82f6;
+    --dsw-alias-state-business-tertiary: #60a5fa;
+    --dsw-alias-onboarding-accent: #3b82f6;
+    --dsw-alias-interactive-bg-hover-accent: rgba(59, 130, 246, 0.12);
+    --dsw-focus-ring-color: #3b82f6;
+    --dsw-alias-label-primary-bluish: #93c5fd;
   }
 `;
 
