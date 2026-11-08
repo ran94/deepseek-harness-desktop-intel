@@ -348,9 +348,19 @@ function createWindow() {
   mainWindow.loadFile(LOGIN_HTML);
   mainWindow.once('ready-to-show', () => mainWindow.show());
 
+  // 捕获渲染进程 console 与错误，写入主进程日志便于排查
+  mainWindow.webContents.on('console-message', (_e, _level, message) => {
+    log('[renderer]', message);
+  });
+  mainWindow.webContents.on('preload-error', (_e, p, err) => log('[preload-error]', p, err && err.message));
+
   // 每次页面加载完成后注入科幻主题（登录页无影响，dsh 主界面生效）
   mainWindow.webContents.on('did-finish-load', () => {
+    log('[web] did-finish-load:', mainWindow.webContents.getURL());
     try { mainWindow.webContents.insertCSS(SCI_FI_THEME_CSS); } catch (_) {}
+  });
+  mainWindow.webContents.on('did-fail-load', (_e, code, desc, url) => {
+    log('[web] did-fail-load:', code, desc, url);
   });
 
   mainWindow.webContents.setWindowOpenHandler(({ url: u }) => {
@@ -439,9 +449,11 @@ ipcMain.handle('dsh:login', async (_e, payload) => {
 });
 
 ipcMain.handle('dsh:navigate', () => {
+  log('[navigate] pendingUrl =', pendingUrl);
   if (mainWindow && pendingUrl) {
     mainWindow.setTitle('DeepSeek Harness — ' + pendingUsername);
     mainWindow.loadURL(pendingUrl); // 主进程导航，确保 token cookie 正确写入
+    log('[navigate] loadURL 已触发');
     pendingUrl = null;
   }
 });

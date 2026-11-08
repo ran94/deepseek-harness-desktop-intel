@@ -244,8 +244,8 @@
   let stage = 0;
 
   function show(name) {
-    scenes.forEach(s => $('#'+s).classList.remove('active'));
-    $('#'+name).classList.add('active');
+    scenes.forEach(s => $(s).classList.remove('active'));
+    $(name).classList.add('active');
   }
   function showBg() { $('bgLayer').style.display = 'block'; }
 
@@ -263,8 +263,10 @@
 
   // 档案动画后：有已保存身份则自动登录（跳过表单），否则进入身份核验表单
   async function proceedAfterDossier() {
+    console.log('[DSH] proceedAfterDossier');
     let cfg = null;
-    try { cfg = await (window.dshDesktop && window.dshDesktop.getConfig && window.dshDesktop.getConfig()); } catch (e) {}
+    try { cfg = await (window.dshDesktop && window.dshDesktop.getConfig && window.dshDesktop.getConfig()); } catch (e) { console.log('[DSH] getConfig error', e && e.message); }
+    console.log('[DSH] cfg =', JSON.stringify(cfg));
     if (cfg) {
       if (cfg.username) $('username').value = cfg.username;
       if (cfg.providerType === 'custom') { $('model').value='__custom__'; $('customFields').style.display='block'; if(cfg.baseURL)$('baseURL').value=cfg.baseURL; if(cfg.model)$('modelId').value=cfg.model; }
@@ -299,11 +301,13 @@
   function setStatus(msg, cls) { status.className = 'status ' + (cls||''); status.innerHTML = msg; }
 
   async function doLogin(payload) {
+    console.log('[DSH] doLogin', payload.username);
     btn.disabled = true;
     setStatus('<span class="spinner"></span>验证中…', 'busy');
     $('hudStatus').textContent = 'VERIFYING';
     try {
       const res = await window.dshDesktop.login(payload);
+      console.log('[DSH] login result =', JSON.stringify(res));
       if (res && res.ok) {
         playReading(payload.username);
       } else {
@@ -312,6 +316,7 @@
         $('hudStatus').textContent = 'AUTH FAILED';
       }
     } catch (err) {
+      console.log('[DSH] doLogin error', err && err.message);
       setStatus('调用失败：' + (err && err.message || err), 'err');
       btn.disabled = false;
     }
@@ -319,19 +324,26 @@
 
   // 权限读取动画（登录成功后）
   function playReading(name) {
-    show('reading'); $('hudStatus').textContent = 'READING';
+    console.log('[DSH] playReading');
+    console.log('[DSH] 1 scenes=', scenes.join(','), 'hudStatus=', $('hudStatus'), 'readLines=', $('readLines'));
+    show('reading');
+    console.log('[DSH] 2 show done');
+    $('hudStatus').textContent = 'READING';
     const lns = Array.from($('readLines').children), bar = $('readBar');
+    console.log('[DSH] 3 lns.length=', lns.length);
     lns.forEach((ln, i) => setTimeout(() => { ln.classList.add('on'); bar.style.width = ((i+1)/lns.length*100) + '%'; }, i * 550));
     setTimeout(() => { show('reveal'); revealWelcome(name); $('hudStatus').textContent = 'VERIFIED'; }, lns.length * 550 + 600);
   }
 
   function revealWelcome(name) {
+    console.log('[DSH] revealWelcome');
     const nm = name || 'OPERATOR';
     $('welcomeText').textContent = '欢迎 ' + nm;
     $('welcomeText').setAttribute('data-text', '欢迎 ' + nm);
     $('welcomeEn').textContent = 'WELCOME, ' + nm.toUpperCase();
     // 色散故障闪烁后，通知主进程跳转到 dsh 主界面
     setTimeout(() => {
+      console.log('[DSH] navigate');
       if (window.dshDesktop && window.dshDesktop.navigate) window.dshDesktop.navigate();
     }, 1300);
   }
