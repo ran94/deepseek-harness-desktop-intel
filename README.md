@@ -47,13 +47,17 @@ open "dist/mac/DeepSeek Harness.app"
 ```
 
 - 首次打开若提示「无法验证开发者」，右键 → 打开（本地构建未签名；正式分发需 Developer ID 签名 + 公证）。
-- 打开后进入 **设置 → Models** 填入 DeepSeek 的 `DEEPSEEK_API_KEY`。
+- **启动页登录**：输入用户名 + DeepSeek API Key（`sk-...`，从
+  [platform.deepseek.com](https://platform.deepseek.com) 获取并充值）+ 选择基础模型
+  （默认 `deepseek-v4-pro`），点「验证并进入」。应用会实时校验 Key，通过后进入主界面。
+- Key 仅保存在本机（`~/.dsh/.env`），下次启动可复用；如需更换模型可在启动页重新选择。
 
 ## 目录结构
 
 ```
-├── main.js              # Electron 主进程：拉起 dsh、解析启动 URL、开窗口
-├── preload.js           # preload（安全隔离）
+├── main.js              # Electron 主进程：启动页 + 校验 Key + 拉起 dsh + 开窗口
+├── preload.js           # preload（安全隔离 + IPC 桥）
+├── login.html           # 科技感启动页（用户名 + API Key + 模型选择）
 ├── package.json         # 依赖与 electron-builder 打包配置
 ├── scripts/
 │   ├── setup-node.sh    # 下载 Node 22 LTS darwin-x64 到 runtime/

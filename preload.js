@@ -1,10 +1,9 @@
 'use strict';
 
-// 预留 preload：当前架构无需向渲染进程注入任何特权能力。
-// 保持 contextIsolation: true + sandbox: true，保证 Web 前端安全隔离。
-// 若后续需要托盘、通知、剪贴板等桌面能力，可在此通过 contextBridge 暴露最小接口。
+// preload：通过 contextBridge 暴露最小、安全的主进程接口给启动页。
+// 不注入 Node 能力到渲染进程，保持 sandbox + contextIsolation 安全隔离。
 
-const { contextBridge } = require('electron');
+const { contextBridge, ipcRenderer } = require('electron');
 
 contextBridge.exposeInMainWorld('dshDesktop', {
   platform: process.platform,
@@ -13,4 +12,13 @@ contextBridge.exposeInMainWorld('dshDesktop', {
     electron: process.versions.electron,
     chrome: process.versions.chrome,
   },
+
+  // 登录：验证 API Key → 保存配置 → 启动 dsh → 返回 dsh web 地址
+  login: (payload) => ipcRenderer.invoke('dsh:login', payload),
+
+  // 读取已保存的启动配置（用户名、模型；不含 API Key）
+  getConfig: () => ipcRenderer.invoke('dsh:get-config'),
+
+  // 打开外链（如 DeepSeek 开放平台）
+  openExternal: (url) => ipcRenderer.invoke('dsh:open-external', url),
 });
