@@ -21,4 +21,7 @@ contextBridge.exposeInMainWorld('dshDesktop', {
 
   // 打开外链（如 DeepSeek 开放平台）
   openExternal: (url) => ipcRenderer.invoke('dsh:open-external', url),
+
+  // 启动动画播放完毕后，通知主进程跳转到 dsh 主界面
+  navigate: () => ipcRenderer.invoke('dsh:navigate'),
 });

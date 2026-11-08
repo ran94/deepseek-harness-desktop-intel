@@ -33,6 +33,8 @@ const DEEPSEEK_API_ROOT = 'https://api.deepseek.com';
 let dshProc = null;
 let mainWindow = null;
 let resolvedUrl = null;
+let pendingUrl = null;      // 登录成功后待跳转的 dsh URL（等启动动画播完再跳）
+let pendingUsername = '';
 
 // 性能优化：窗口后台时禁止渲染进程降频/暂停，保持界面切换流畅、响应即时
 app.commandLine.appendSwitch('disable-renderer-backgrounding');
@@ -424,10 +426,9 @@ ipcMain.handle('dsh:login', async (_e, payload) => {
   try {
     const res = await performLogin(payload);
     if (res.ok) {
-      if (mainWindow) {
-        mainWindow.setTitle('DeepSeek Harness — ' + sanitizeUsername(payload.username));
-        mainWindow.loadURL(res.url); // 主进程导航，确保 token cookie 正确写入
-      }
+      // 不立即跳转，等启动页播完「权限读取/揭幕」动画后由 dsh:navigate 触发 loadURL
+      pendingUrl = res.url;
+      pendingUsername = sanitizeUsername(payload.username);
       return { ok: true };
     }
     return res;
@@ -437,39 +438,22 @@ ipcMain.handle('dsh:login', async (_e, payload) => {
   }
 });
 
+ipcMain.handle('dsh:navigate', () => {
+  if (mainWindow && pendingUrl) {
+    mainWindow.setTitle('DeepSeek Harness — ' + pendingUsername);
+    mainWindow.loadURL(pendingUrl); // 主进程导航，确保 token cookie 正确写入
+    pendingUrl = null;
+  }
+});
+
 /* ---------------- 生命周期 ---------------- */
 
 app.whenReady().then(async () => {
   log('====== DeepSeek Harness (Intel) 启动 ======');
   log('[env] arch =', process.arch, ', platform =', process.platform, ', electron =', process.versions.electron);
   createWindow();
-
-  // 自动登录：若上次登录的用户与其 Key 已保存，直接启动 dsh 进入主界面
-  const lastUser = getLastUser();
-  if (lastUser) {
-    const dshHome = resolveDshHome(lastUser);
-    const cfg = loadAppConfig(dshHome);
-    const env = loadDotEnv(dshHome);
-    const hasKey = !!(env.DEEPSEEK_API_KEY || env.CUSTOM_API_KEY);
-    if (cfg.username && hasKey) {
-      log('[auto-login] 自动登录用户 =', lastUser);
-      try {
-        const res = await performLogin({
-          username: lastUser,
-          providerType: cfg.providerType || 'deepseek',
-          model: cfg.model || 'deepseek-v4-pro',
-          modelId: cfg.model,
-          baseURL: cfg.baseURL || '',
-        });
-        if (res.ok && mainWindow) {
-          mainWindow.setTitle('DeepSeek Harness — ' + sanitizeUsername(lastUser));
-          mainWindow.loadURL(res.url);
-        }
-      } catch (err) {
-        log('[auto-login] 自动登录失败：', err.message);
-      }
-    }
-  }
+  // 自动登录改由启动页在播放完档案动画后触发（见 login.html 的 getConfig 判断），
+  // 以便启动动画与登录流程无缝衔接。
 });
 
 app.on('window-all-closed', () => {
