@@ -1,0 +1,26 @@
+# ---- 依赖（npm install 可再生成）----
+node_modules/
+
+# ---- 构建产物（npm run pack 可再生成）----
+dist/
+
+# ---- Node 运行时（构建前由 scripts/setup-node.sh 下载）----
+runtime/
+
+# ---- npm 缓存 ----
+.npm-cache/
+.npm-cache-*/
+
+# ---- 本地 npm 配置（可能含用户特定路径/凭据，参考 .npmrc.example）----
+.npmrc
+
+# ---- macOS 系统文件 ----
+.DS_Store
+
+# ---- 工具 / 编辑器 ----
+.workbuddy/
+*.log
+
+# ---- 临时文件 ----
+.tmp/
+*.tmp

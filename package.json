@@ -1,0 +1,51 @@
+{
+  "name": "deepseek-harness-desktop-intel",
+  "version": "1.0.0",
+  "description": "DeepSeek Harness (dsh) 桌面客户端 —— Intel (x64) macOS 适配版",
+  "main": "main.js",
+  "author": "Intel Mac 适配版",
+  "license": "MIT",
+  "private": true,
+  "dependencies": {
+    "@deepseek-ai/dsh": "0.2.1-rc.5"
+  },
+  "devDependencies": {
+    "electron": "35.7.5",
+    "electron-builder": "^26.0.0"
+  },
+  "scripts": {
+    "start": "electron .",
+    "setup": "bash scripts/setup-node.sh",
+    "pack": "bash scripts/setup-node.sh && electron-builder --mac --x64 --dir",
+    "dist": "bash scripts/setup-node.sh && electron-builder --mac --x64"
+  },
+  "build": {
+    "appId": "com.intel.deepseek-harness-desktop",
+    "productName": "DeepSeek Harness",
+    "asar": false,
+    "directories": {
+      "output": "dist"
+    },
+    "files": [
+      "main.js",
+      "preload.js",
+      "package.json",
+      "!**/*.map",
+      "!**/*.md",
+      "!**/LICENSE*"
+    ],
+    "extraResources": [
+      {
+        "from": "runtime/node-v24.22.2-darwin-x64",
+        "to": "node-runtime"
+      }
+    ],
+    "mac": {
+      "target": ["dir"],
+      "category": "public.app-category.developer-tools",
+      "artifactName": "DeepSeek-Harness-${version}-mac-x64.${ext}",
+      "hardenedRuntime": false,
+      "gatekeeperAssess": false
+    }
+  }
+}

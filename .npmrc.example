@@ -1,0 +1,10 @@
+# npm 镜像配置模板
+# 复制为 .npmrc 使用：  cp .npmrc.example .npmrc
+# （.npmrc 已加入 .gitignore，不会提交到仓库）
+
+# 使用阿里 npmmirror 加速（中国大陆用户推荐；海外可删除此行）
+registry=https://registry.npmmirror.com
+
+# Electron 与 electron-builder 二进制镜像加速
+electron_mirror=https://npmmirror.com/mirrors/electron/
+electron_builder_binaries_mirror=https://npmmirror.com/mirrors/electron-builder-binaries/
