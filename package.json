@@ -43,7 +43,7 @@
       }
     ],
     "mac": {
-      "target": ["dir"],
+      "target": ["dmg", "zip"],
       "category": "public.app-category.developer-tools",
       "artifactName": "DeepSeek-Harness-${version}-mac-x64.${ext}",
       "hardenedRuntime": false,
