@@ -119,24 +119,58 @@ function saveAppConfig(dshHome, cfg) {
   fs.writeFileSync(path.join(dshHome, 'app-config.json'), JSON.stringify(cfg, null, 2), { mode: 0o600 });
 }
 
-/** 生成默认模型 patch，通过 --patch 传给 dsh，把基础模型设为用户所选 */
-function writeModelPatch(dshHome, model) {
+/** 生成 DeepSeek 官方默认模型 patch */
+function buildDeepSeekPatch(model) {
+  return `- id: agent-default-model\n  config:\n    model: ${model}\n`;
+}
+
+/** 生成自定义 OpenAI 兼容 provider patch（pi-ai 适配器 + 默认模型指向） */
+function buildCustomPatch(baseURL, modelId) {
+  return [
+    `- name: '@deepseek-ai/dsh-llm-pi-ai'`,
+    `  config:`,
+    `    providers:`,
+    `      custom:`,
+    `        displayName: 自定义模型`,
+    `        apiKeyEnv: CUSTOM_API_KEY`,
+    `        api: openai-completions`,
+    `        baseURL: ${baseURL}`,
+    `        models:`,
+    `          - id: ${modelId}`,
+    `- id: agent-default-model`,
+    `  config:`,
+    `    provider: custom`,
+    `    model: ${modelId}`,
+    ``,
+  ].join('\n');
+}
+
+/** 写入 patch 文件，返回路径（通过 --patch 传给 dsh） */
+function writePatch(dshHome, content) {
   const p = path.join(dshHome, '.model-patch.yml');
-  const patch = `- id: agent-default-model\n  config:\n    model: ${model}\n`;
   fs.mkdirSync(dshHome, { recursive: true });
-  fs.writeFileSync(p, patch);
+  fs.writeFileSync(p, content);
   return p;
 }
 
 /**
- * 校验 DeepSeek API Key：调用 GET /models。
+ * 校验 API Key：调用 GET {baseURL}/models（OpenAI 兼容的 models 端点）。
  * 200 有效；401 Key 无效；402 余额不足；429 限流；其它为服务端/网络错误。
+ * 不传 baseURL 时默认用 DeepSeek 官方端点。
  */
-function verifyApiKey(apiKey) {
+function verifyApiKey(apiKey, baseURL) {
   return new Promise((resolve) => {
+    let hostname, pathPrefix;
+    try {
+      const u = new URL(baseURL || DEEPSEEK_API_ROOT);
+      hostname = u.hostname;
+      pathPrefix = u.pathname.replace(/\/+$/, '');
+    } catch (_) {
+      return resolve({ ok: false, error: 'Base URL 格式无效' });
+    }
     const req = https.request({
-      hostname: 'api.deepseek.com',
-      path: '/models',
+      hostname,
+      path: pathPrefix + '/models',
       method: 'GET',
       headers: { Authorization: `Bearer ${apiKey}`, 'User-Agent': 'dsh-desktop-intel' },
       timeout: 20000,
@@ -146,14 +180,14 @@ function verifyApiKey(apiKey) {
         switch (res.statusCode) {
           case 200: return resolve({ ok: true });
           case 401: return resolve({ ok: false, error: 'API Key 无效或已过期（401），请检查后重试' });
-          case 402: return resolve({ ok: false, error: '账户余额不足（402），请到 platform.deepseek.com 充值' });
+          case 402: return resolve({ ok: false, error: '账户余额不足（402），请先充值' });
           case 429: return resolve({ ok: false, error: '请求过于频繁（429），请稍后再试' });
           default: return resolve({ ok: false, error: `验证失败（HTTP ${res.statusCode}）` });
         }
       });
     });
     req.on('timeout', () => { req.destroy(new Error('timeout')); });
-    req.on('error', (e) => resolve({ ok: false, error: '无法连接 DeepSeek API：' + e.message }));
+    req.on('error', (e) => resolve({ ok: false, error: '无法连接 API：' + e.message }));
     req.end();
   });
 }
@@ -175,28 +209,30 @@ function cleanupStaleLocks(dshHome) {
 }
 
 /** 启动 dsh web 服务，返回带 token 的启动 URL */
-function startDsh(apiKey, model) {
+function startDsh(patchContent, extraEnv) {
   return new Promise((resolve, reject) => {
     if (!fs.existsSync(DSH_BIN)) return reject(new Error('未找到 dsh 包：' + DSH_BIN));
     const nodeBin = findNode();
     const dshHome = resolveDshHome();
     cleanupStaleLocks(dshHome);
-    const modelPatch = model ? writeModelPatch(dshHome, model) : null;
+    const modelPatch = patchContent ? writePatch(dshHome, patchContent) : null;
 
     log('[boot] node =', nodeBin);
     log('[boot] DSH_HOME =', dshHome);
-    log('[boot] model =', model || '(默认)');
 
     const env = Object.assign({}, process.env, {
       DSH_HOME: dshHome,
       NO_COLOR: '1',
       NODE_OPTIONS: '',
     });
-    // 合并 .env（含已保存的 DEEPSEEK_API_KEY），再显式注入本次 key
+    // 合并 .env（含已保存的 DEEPSEEK_API_KEY）
     for (const [k, v] of Object.entries(loadDotEnv(dshHome))) {
       if (!(k in env)) env[k] = v;
     }
-    if (apiKey) env.DEEPSEEK_API_KEY = apiKey;
+    // 注入本次登录提供的额外环境变量（DEEPSEEK_API_KEY 或 CUSTOM_API_KEY 等）
+    for (const [k, v] of Object.entries(extraEnv || {})) {
+      env[k] = v;
+    }
 
     const args = [DSH_BIN, '--profile', 'web', '--no-open', '--host', '127.0.0.1', '--port', '0'];
     if (modelPatch) args.push('--patch', modelPatch);
@@ -264,8 +300,15 @@ function createWindow() {
 ipcMain.handle('dsh:get-config', () => {
   const dshHome = resolveDshHome();
   const cfg = loadAppConfig(dshHome);
-  const hasKey = !!loadDotEnv(dshHome).DEEPSEEK_API_KEY;
-  return { username: cfg.username || '', model: cfg.model || 'deepseek-v4-pro', hasKey };
+  const env = loadDotEnv(dshHome);
+  const hasKey = !!(env.DEEPSEEK_API_KEY || env.CUSTOM_API_KEY);
+  return {
+    username: cfg.username || '',
+    model: cfg.model || 'deepseek-v4-pro',
+    providerType: cfg.providerType || 'deepseek',
+    baseURL: cfg.baseURL || '',
+    hasKey,
+  };
 });
 
 ipcMain.handle('dsh:open-external', (_e, url) => {
@@ -274,11 +317,37 @@ ipcMain.handle('dsh:open-external', (_e, url) => {
 
 ipcMain.handle('dsh:login', async (_e, payload) => {
   const dshHome = resolveDshHome();
-  const username = String(payload && payload.username || '').trim();
-  const apiKey = String(payload && payload.apiKey || '').trim();
-  const model = String(payload && payload.model || 'deepseek-v4-pro').trim();
+  const providerType = String((payload && payload.providerType) || 'deepseek');
+  const username = String((payload && payload.username) || '').trim();
+  const apiKey = String((payload && payload.apiKey) || '').trim();
   if (!username) return { ok: false, error: '用户名不能为空' };
 
+  // 自定义 OpenAI 兼容模型
+  if (providerType === 'custom') {
+    const baseURL = String((payload && payload.baseURL) || '').trim();
+    const modelId = String((payload && payload.modelId) || '').trim();
+    if (!baseURL) return { ok: false, error: '请填写 Base URL' };
+    if (!modelId) return { ok: false, error: '请填写模型 ID' };
+    if (!apiKey) return { ok: false, error: '请填写 API Key' };
+
+    log('[login] 校验自定义模型，baseURL =', baseURL, '，model =', modelId);
+    const v = await verifyApiKey(apiKey, baseURL);
+    if (!v.ok) return v;
+
+    saveDotEnvKey(dshHome, 'CUSTOM_API_KEY', apiKey);
+    saveAppConfig(dshHome, { username, model: modelId, providerType: 'custom', baseURL });
+
+    try {
+      const url = await startDsh(buildCustomPatch(baseURL, modelId), { CUSTOM_API_KEY: apiKey });
+      return { ok: true, url };
+    } catch (err) {
+      log('[login] 启动 dsh 失败：', err.message);
+      return { ok: false, error: '启动失败：' + err.message };
+    }
+  }
+
+  // DeepSeek 官方模型
+  const model = String((payload && payload.model) || 'deepseek-v4-pro').trim();
   const existingKey = loadDotEnv(dshHome).DEEPSEEK_API_KEY || '';
   const keyToUse = apiKey || existingKey;
   if (!keyToUse) return { ok: false, error: '请填写 API Key' };
@@ -287,13 +356,11 @@ ipcMain.handle('dsh:login', async (_e, payload) => {
   const v = await verifyApiKey(keyToUse);
   if (!v.ok) return v;
 
-  // 保存配置：Key 写入 .env，用户名/模型写入 app-config.json
   saveDotEnvKey(dshHome, 'DEEPSEEK_API_KEY', keyToUse);
   saveAppConfig(dshHome, { username, model });
 
-  log('[login] 校验通过，启动 dsh ...');
   try {
-    const url = await startDsh(keyToUse, model);
+    const url = await startDsh(buildDeepSeekPatch(model), { DEEPSEEK_API_KEY: keyToUse });
     return { ok: true, url };
   } catch (err) {
     log('[login] 启动 dsh 失败：', err.message);

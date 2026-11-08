@@ -146,7 +146,7 @@
           <input id="username" type="text" placeholder="用于标识你的会话" autocomplete="username">
         </div>
         <div class="field">
-          <label>DeepSeek API Key</label>
+          <label>API Key（所选提供商）</label>
           <input id="apiKey" type="password" placeholder="sk-..." autocomplete="new-password">
         </div>
         <div class="field">
@@ -155,7 +155,18 @@
             <option value="deepseek-v4-pro">deepseek-v4-pro（推荐 · 深度推理）</option>
             <option value="deepseek-v4-flash">deepseek-v4-flash（快速响应）</option>
             <option value="deepseek-flash">deepseek-flash（V4.1 Flash）</option>
+            <option value="__custom__">自定义 OpenAI 兼容模型…</option>
           </select>
+        </div>
+        <div id="customFields" style="display:none">
+          <div class="field">
+            <label>Base URL（OpenAI 兼容端点）</label>
+            <input id="baseURL" type="text" placeholder="https://api.openai.com/v1">
+          </div>
+          <div class="field">
+            <label>模型 ID</label>
+            <input id="modelId" type="text" placeholder="gpt-4o / moonshot-v1-8k / qwen-plus / ...">
+          </div>
         </div>
         <button class="btn" id="loginBtn" type="submit">验证并进入</button>
         <div class="status" id="status"></div>
@@ -191,7 +202,14 @@
         const cfg = await window.dshDesktop.getConfig();
         if (cfg) {
           if (cfg.username) $('username').value = cfg.username;
-          if (cfg.model) $('model').value = cfg.model;
+          if (cfg.providerType === 'custom') {
+            $('model').value = '__custom__';
+            $('customFields').style.display = 'block';
+            if (cfg.baseURL) $('baseURL').value = cfg.baseURL;
+            if (cfg.model) $('modelId').value = cfg.model;
+          } else if (cfg.model) {
+            $('model').value = cfg.model;
+          }
           if (cfg.hasKey) {
             hasSavedKey = true;
             $('apiKey').placeholder = '已保存 Key（留空则复用，输入则覆盖）';
@@ -201,19 +219,17 @@
     } catch (e) {}
   })();
 
-  $('loginForm').addEventListener('submit', async (e) => {
-    e.preventDefault();
-    const username = $('username').value.trim();
-    const apiKey = $('apiKey').value.trim();
-    const model = $('model').value;
+  // 模型下拉切换：自定义模型时展开 Base URL / 模型 ID 输入
+  $('model').addEventListener('change', () => {
+    const isCustom = $('model').value === '__custom__';
+    $('customFields').style.display = isCustom ? 'block' : 'none';
+  });
 
-    if (!username) { setStatus('请输入用户名', 'err'); return; }
-    if (!apiKey && !hasSavedKey) { setStatus('请输入 API Key', 'err'); return; }
-
+  async function doLogin(payload) {
     btn.disabled = true;
     setStatus('<span class="spinner"></span>正在验证 API Key 并初始化…', 'busy');
     try {
-      const res = await window.dshDesktop.login({ username, apiKey, model });
+      const res = await window.dshDesktop.login(payload);
       if (res && res.ok) {
         setStatus('验证通过，正在进入…', 'ok');
         // 进入 dsh 主界面
@@ -226,6 +242,26 @@
       setStatus('调用失败：' + (err && err.message || err), 'err');
       btn.disabled = false;
     }
+  }
+
+  $('loginForm').addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const username = $('username').value.trim();
+    const apiKey = $('apiKey').value.trim();
+    const model = $('model').value;
+    const isCustom = model === '__custom__';
+
+    if (!username) { setStatus('请输入用户名', 'err'); return; }
+    if (!apiKey && !hasSavedKey) { setStatus('请输入 API Key', 'err'); return; }
+    if (isCustom) {
+      const baseURL = $('baseURL').value.trim();
+      const modelId = $('modelId').value.trim();
+      if (!baseURL) { setStatus('请输入 Base URL', 'err'); return; }
+      if (!modelId) { setStatus('请输入模型 ID', 'err'); return; }
+      await doLogin({ providerType: 'custom', username, apiKey, baseURL, modelId });
+      return;
+    }
+    await doLogin({ providerType: 'deepseek', username, apiKey, model });
   });
 
   // 粒子动画
