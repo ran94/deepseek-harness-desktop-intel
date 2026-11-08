@@ -178,7 +178,7 @@
     <div class="reticle-wrap">
       <div class="reticle"><span class="tick"></span><span class="gap"></span></div>
     </div>
-    <div class="loading mono">初始化 <span class="dots"></span></div>
+    <div class="loading mono" id="dossierLoading">初始化 <span class="dots"></span></div>
   </div>
 
   <!-- 幕3 身份核验 -->
@@ -274,6 +274,7 @@
     if (cfg && cfg.hasKey && cfg.username) {
       // 自动登录：跳过表单，直接走验证
       $('hudStatus').textContent = 'AUTH REQUIRED';
+      $('dossierLoading').innerHTML = '身份核验中 <span class="dots"></span>';
       $('apiKey').placeholder = '复用已保存 Key';
       doLogin({ username: cfg.username, providerType: cfg.providerType || 'deepseek', model: cfg.model || 'deepseek-v4-pro', modelId: cfg.model, baseURL: cfg.baseURL || '', apiKey: '' });
     } else {
@@ -319,7 +320,7 @@
   // 权限读取动画（登录成功后）
   function playReading(name) {
     show('reading'); $('hudStatus').textContent = 'READING';
-    const lns = $('readLines').children, bar = $('readBar');
+    const lns = Array.from($('readLines').children), bar = $('readBar');
     lns.forEach((ln, i) => setTimeout(() => { ln.classList.add('on'); bar.style.width = ((i+1)/lns.length*100) + '%'; }, i * 550));
     setTimeout(() => { show('reveal'); revealWelcome(name); $('hudStatus').textContent = 'VERIFIED'; }, lns.length * 550 + 600);
   }
