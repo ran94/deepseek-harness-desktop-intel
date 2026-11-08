@@ -68,7 +68,8 @@
   }
   .brand { display: flex; flex-direction: column; align-items: center; gap: 8px; animation: rise .8s cubic-bezier(.2,.8,.2,1); }
   .brand .logo {
-    font-size: 64px; font-weight: 800; letter-spacing: 10px;
+    font-size: 60px; font-weight: 800; letter-spacing: 14px;
+    font-family: "SF Mono", "Menlo", "Consolas", monospace;
     background: linear-gradient(105deg, var(--cyan) 0%, var(--cyan-soft) 40%, var(--violet) 100%);
     -webkit-background-clip: text; background-clip: text; color: transparent;
     filter: drop-shadow(0 0 24px rgba(0,212,255,0.45));
@@ -92,6 +93,25 @@
     opacity: 0.8;
   }
   @keyframes rise { from { opacity: 0; transform: translateY(18px); } to { opacity: 1; transform: none; } }
+
+  /* —— HUD 四角标记 —— */
+  .corner { position: absolute; width: 16px; height: 16px; pointer-events: none; opacity: 0.9; }
+  .corner::before, .corner::after { content: ''; position: absolute; background: var(--cyan); box-shadow: 0 0 8px rgba(0,212,255,0.7); }
+  .corner::before { width: 16px; height: 1.5px; }
+  .corner::after { width: 1.5px; height: 16px; }
+  .corner.tl { top: 6px; left: 6px; } .corner.tl::before { top: 0; left: 0; } .corner.tl::after { top: 0; left: 0; }
+  .corner.tr { top: 6px; right: 6px; } .corner.tr::before { top: 0; right: 0; } .corner.tr::after { top: 0; right: 0; }
+  .corner.bl { bottom: 6px; left: 6px; } .corner.bl::before { bottom: 0; left: 0; } .corner.bl::after { bottom: 0; left: 0; }
+  .corner.br { bottom: 6px; right: 6px; } .corner.br::before { bottom: 0; right: 0; } .corner.br::after { bottom: 0; right: 0; }
+
+  /* —— 动态数据流（背景垂直光带） —— */
+  .dataflow { position: fixed; top: -10%; width: 2px; height: 120%; z-index: 1; pointer-events: none;
+    background: linear-gradient(180deg, transparent, rgba(0,212,255,0.5), rgba(139,92,246,0.4), transparent);
+    filter: blur(1px); }
+  .df1 { left: 18%; animation: flow 9s linear infinite; }
+  .df2 { left: 82%; animation: flow 12s linear infinite 2s; }
+  .df3 { left: 50%; animation: flow 15s linear infinite 5s; opacity: 0.5; }
+  @keyframes flow { 0% { transform: translateY(-10%); } 100% { transform: translateY(10%); } }
 
   .field { margin-bottom: 16px; }
   .field label { display: block; font-size: 11.5px; color: var(--muted); margin-bottom: 7px; letter-spacing: 1.5px; }
@@ -171,6 +191,9 @@
   <div class="glow cyan"></div>
   <div class="glow violet"></div>
   <div class="scanline"></div>
+  <div class="dataflow df1"></div>
+  <div class="dataflow df2"></div>
+  <div class="dataflow df3"></div>
   <canvas id="particles"></canvas>
 
   <div class="stage">
@@ -180,6 +203,10 @@
     </div>
 
     <div class="card">
+      <span class="corner tl"></span>
+      <span class="corner tr"></span>
+      <span class="corner bl"></span>
+      <span class="corner br"></span>
       <form id="loginForm" autocomplete="off">
         <div class="field">
           <label>用户名</label>

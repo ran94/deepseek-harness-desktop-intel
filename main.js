@@ -61,8 +61,38 @@ function findNode() {
   return 'node';
 }
 
-function resolveDshHome() {
-  return process.env.DSH_HOME || path.join(os.homedir(), '.dsh');
+const PROFILE_ROOT = path.join(os.homedir(), '.dsh-profiles');
+
+/** 安全化用户名，作为独立数据目录名 */
+function sanitizeUsername(username) {
+  const clean = String(username || '').replace(/[\/\\:*?"<>|]/g, '_').trim();
+  return clean || 'default';
+}
+
+/**
+ * 解析用户的 dsh 数据目录（DSH_HOME）。
+ * 每个用户名对应独立目录，实现会话/历史/配置隔离；未登录时回退到默认 ~/.dsh。
+ */
+function resolveDshHome(username) {
+  if (process.env.DSH_HOME) return process.env.DSH_HOME;
+  if (!username) return path.join(os.homedir(), '.dsh');
+  return path.join(PROFILE_ROOT, sanitizeUsername(username));
+}
+
+/** 读取上次登录的用户名 */
+function getLastUser() {
+  try {
+    const p = path.join(PROFILE_ROOT, '.last-user');
+    if (fs.existsSync(p)) return fs.readFileSync(p, 'utf8').trim();
+  } catch (_) { /* ignore */ }
+  return '';
+}
+
+function saveLastUser(username) {
+  try {
+    fs.mkdirSync(PROFILE_ROOT, { recursive: true });
+    fs.writeFileSync(path.join(PROFILE_ROOT, '.last-user'), String(username));
+  } catch (_) { /* ignore */ }
 }
 
 /** 读取 $DSH_HOME/.env，解析 KEY=VALUE */
@@ -214,11 +244,11 @@ function cleanupStaleLocks(dshHome) {
 }
 
 /** 启动 dsh web 服务，返回带 token 的启动 URL */
-function startDsh(patchContent, extraEnv) {
+function startDsh(patchContent, extraEnv, username) {
   return new Promise((resolve, reject) => {
     if (!fs.existsSync(DSH_BIN)) return reject(new Error('未找到 dsh 包：' + DSH_BIN));
     const nodeBin = findNode();
-    const dshHome = resolveDshHome();
+    const dshHome = resolveDshHome(username);
     cleanupStaleLocks(dshHome);
     const modelPatch = patchContent ? writePatch(dshHome, patchContent) : null;
 
@@ -332,12 +362,13 @@ function createWindow() {
 /* ---------------- IPC ---------------- */
 
 ipcMain.handle('dsh:get-config', () => {
-  const dshHome = resolveDshHome();
+  const username = getLastUser();
+  const dshHome = resolveDshHome(username);
   const cfg = loadAppConfig(dshHome);
   const env = loadDotEnv(dshHome);
   const hasKey = !!(env.DEEPSEEK_API_KEY || env.CUSTOM_API_KEY);
   return {
-    username: cfg.username || '',
+    username: cfg.username || username,
     model: cfg.model || 'deepseek-v4-pro',
     providerType: cfg.providerType || 'deepseek',
     baseURL: cfg.baseURL || '',
@@ -349,12 +380,13 @@ ipcMain.handle('dsh:open-external', (_e, url) => {
   if (typeof url === 'string' && /^https?:\/\//.test(url)) shell.openExternal(url);
 });
 
-ipcMain.handle('dsh:login', async (_e, payload) => {
-  const dshHome = resolveDshHome();
-  const providerType = String((payload && payload.providerType) || 'deepseek');
+/** 执行登录（验证 → 保存 → 启动 dsh），返回 { ok, url } 或 { ok, error }。供 IPC 与自动登录复用 */
+async function performLogin(payload) {
   const username = String((payload && payload.username) || '').trim();
+  const providerType = String((payload && payload.providerType) || 'deepseek');
   const apiKey = String((payload && payload.apiKey) || '').trim();
   if (!username) return { ok: false, error: '用户名不能为空' };
+  const dshHome = resolveDshHome(username);
 
   // 自定义 OpenAI 兼容模型
   if (providerType === 'custom') {
@@ -362,54 +394,82 @@ ipcMain.handle('dsh:login', async (_e, payload) => {
     const modelId = String((payload && payload.modelId) || '').trim();
     if (!baseURL) return { ok: false, error: '请填写 Base URL' };
     if (!modelId) return { ok: false, error: '请填写模型 ID' };
-    if (!apiKey) return { ok: false, error: '请填写 API Key' };
-
-    log('[login] 校验自定义模型，baseURL =', baseURL, '，model =', modelId);
-    const v = await verifyApiKey(apiKey, baseURL);
+    const keyToUse = apiKey || loadDotEnv(dshHome).CUSTOM_API_KEY || '';
+    if (!keyToUse) return { ok: false, error: '请填写 API Key' };
+    log('[login] 校验自定义模型，用户 =', username, '，baseURL =', baseURL);
+    const v = await verifyApiKey(keyToUse, baseURL);
     if (!v.ok) return v;
-
-    saveDotEnvKey(dshHome, 'CUSTOM_API_KEY', apiKey);
+    saveDotEnvKey(dshHome, 'CUSTOM_API_KEY', keyToUse);
     saveAppConfig(dshHome, { username, model: modelId, providerType: 'custom', baseURL });
-
-    try {
-      const url = await startDsh(buildCustomPatch(baseURL, modelId), { CUSTOM_API_KEY: apiKey });
-      if (mainWindow) mainWindow.loadURL(url); // 主进程导航，确保 token cookie 正确写入
-      return { ok: true };
-    } catch (err) {
-      log('[login] 启动 dsh 失败：', err.message);
-      return { ok: false, error: '启动失败：' + err.message };
-    }
+    saveLastUser(username);
+    const url = await startDsh(buildCustomPatch(baseURL, modelId), { CUSTOM_API_KEY: keyToUse }, username);
+    return { ok: true, url };
   }
 
   // DeepSeek 官方模型
   const model = String((payload && payload.model) || 'deepseek-v4-pro').trim();
-  const existingKey = loadDotEnv(dshHome).DEEPSEEK_API_KEY || '';
-  const keyToUse = apiKey || existingKey;
+  const keyToUse = apiKey || loadDotEnv(dshHome).DEEPSEEK_API_KEY || '';
   if (!keyToUse) return { ok: false, error: '请填写 API Key' };
-
   log('[login] 校验 API Key，用户 =', username, '，模型 =', model);
   const v = await verifyApiKey(keyToUse);
   if (!v.ok) return v;
-
   saveDotEnvKey(dshHome, 'DEEPSEEK_API_KEY', keyToUse);
   saveAppConfig(dshHome, { username, model });
+  saveLastUser(username);
+  const url = await startDsh(buildDeepSeekPatch(model), { DEEPSEEK_API_KEY: keyToUse }, username);
+  return { ok: true, url };
+}
 
+ipcMain.handle('dsh:login', async (_e, payload) => {
   try {
-    const url = await startDsh(buildDeepSeekPatch(model), { DEEPSEEK_API_KEY: keyToUse });
-    if (mainWindow) mainWindow.loadURL(url); // 主进程导航，确保 token cookie 正确写入
-    return { ok: true };
+    const res = await performLogin(payload);
+    if (res.ok) {
+      if (mainWindow) {
+        mainWindow.setTitle('DeepSeek Harness — ' + sanitizeUsername(payload.username));
+        mainWindow.loadURL(res.url); // 主进程导航，确保 token cookie 正确写入
+      }
+      return { ok: true };
+    }
+    return res;
   } catch (err) {
-    log('[login] 启动 dsh 失败：', err.message);
-    return { ok: false, error: '启动失败：' + err.message };
+    log('[login] 登录异常：', err.message);
+    return { ok: false, error: '登录失败：' + err.message };
   }
 });
 
 /* ---------------- 生命周期 ---------------- */
 
-app.whenReady().then(() => {
+app.whenReady().then(async () => {
   log('====== DeepSeek Harness (Intel) 启动 ======');
   log('[env] arch =', process.arch, ', platform =', process.platform, ', electron =', process.versions.electron);
   createWindow();
+
+  // 自动登录：若上次登录的用户与其 Key 已保存，直接启动 dsh 进入主界面
+  const lastUser = getLastUser();
+  if (lastUser) {
+    const dshHome = resolveDshHome(lastUser);
+    const cfg = loadAppConfig(dshHome);
+    const env = loadDotEnv(dshHome);
+    const hasKey = !!(env.DEEPSEEK_API_KEY || env.CUSTOM_API_KEY);
+    if (cfg.username && hasKey) {
+      log('[auto-login] 自动登录用户 =', lastUser);
+      try {
+        const res = await performLogin({
+          username: lastUser,
+          providerType: cfg.providerType || 'deepseek',
+          model: cfg.model || 'deepseek-v4-pro',
+          modelId: cfg.model,
+          baseURL: cfg.baseURL || '',
+        });
+        if (res.ok && mainWindow) {
+          mainWindow.setTitle('DeepSeek Harness — ' + sanitizeUsername(lastUser));
+          mainWindow.loadURL(res.url);
+        }
+      } catch (err) {
+        log('[auto-login] 自动登录失败：', err.message);
+      }
+    }
+  }
 });
 
 app.on('window-all-closed', () => {
