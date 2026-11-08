@@ -275,6 +275,27 @@ function startDsh(patchContent, extraEnv) {
   });
 }
 
+/**
+ * 科幻主题 CSS：通过覆盖 dsh 的 --dsw-* 主题变量，把主界面品牌色调成
+ * 霓虹蓝（#00d4ff）/ 电光紫（#8b5cf6），与登录页/加载页保持视觉统一。
+ * 只覆盖颜色 token，不改动 dsh 的布局与结构。
+ */
+const SCI_FI_THEME_CSS = `
+  :root, body {
+    --dsw-alias-brand-primary: #00d4ff;
+    --dsw-alias-brand-primary-invert: #03131a;
+    --dsw-alias-button-primary-fill: #0e7490;
+    --dsw-alias-button-primary-hover: #00d4ff;
+    --dsw-alias-button-primary-dimmed: #155e75;
+    --dsw-alias-state-business-primary: #00d4ff;
+    --dsw-alias-state-business-tertiary: #8b5cf6;
+    --dsw-alias-onboarding-accent: #8b5cf6;
+    --dsw-alias-interactive-bg-hover-accent: rgba(0, 212, 255, 0.12);
+    --dsw-focus-ring-color: #00d4ff;
+    --dsw-alias-label-primary-bluish: #7dd3fc;
+  }
+`;
+
 function createWindow() {
   mainWindow = new BrowserWindow({
     width: 1080,
@@ -294,6 +315,11 @@ function createWindow() {
 
   mainWindow.loadFile(LOGIN_HTML);
   mainWindow.once('ready-to-show', () => mainWindow.show());
+
+  // 每次页面加载完成后注入科幻主题（登录页无影响，dsh 主界面生效）
+  mainWindow.webContents.on('did-finish-load', () => {
+    try { mainWindow.webContents.insertCSS(SCI_FI_THEME_CSS); } catch (_) {}
+  });
 
   mainWindow.webContents.setWindowOpenHandler(({ url: u }) => {
     if (/^https?:/i.test(u)) shell.openExternal(u);

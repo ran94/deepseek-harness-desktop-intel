@@ -3,164 +3,204 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>DeepSeek Harness 启动</title>
+<title>DeepSeek Harness · 启动</title>
 <style>
   :root {
-    --bg: #060913;
-    --panel: rgba(16, 24, 44, 0.72);
-    --line: rgba(88, 140, 255, 0.16);
-    --accent: #4d6bfe;
-    --accent-2: #7aa2ff;
-    --text: #dbe4ff;
-    --muted: #7d8bb0;
-    --danger: #ff6b7a;
-    --ok: #41d18c;
+    /* 配色规范：深空底色 + 霓虹蓝 / 电光紫荧光 */
+    --bg-0: #030509;
+    --bg-1: #060a14;
+    --bg-panel: rgba(13, 20, 40, 0.62);
+    --cyan: #00d4ff;      /* 霓虹蓝（主） */
+    --violet: #8b5cf6;    /* 电光紫（辅） */
+    --cyan-soft: #22d3ee;
+    --violet-soft: #a78bfa;
+    --text: #e6edf7;
+    --muted: #7f8aa3;
+    --danger: #ff5c7a;
+    --ok: #34e2a4;
+    --border: rgba(0, 212, 255, 0.22);
   }
   * { margin: 0; padding: 0; box-sizing: border-box; }
   html, body { height: 100%; }
   body {
     font-family: -apple-system, "SF Pro Text", "PingFang SC", "Helvetica Neue", sans-serif;
-    background: radial-gradient(1200px 800px at 70% -10%, #0d1b3d 0%, var(--bg) 55%);
+    background: radial-gradient(1200px 800px at 70% -10%, #101736 0%, var(--bg-0) 55%);
     color: var(--text);
     overflow: hidden;
     user-select: none;
     -webkit-font-smoothing: antialiased;
   }
 
-  /* 网格背景 */
+  /* —— 网格背景 —— */
   .grid {
     position: fixed; inset: 0; z-index: 0; pointer-events: none;
     background-image:
-      linear-gradient(var(--line) 1px, transparent 1px),
-      linear-gradient(90deg, var(--line) 1px, transparent 1px);
-    background-size: 44px 44px;
-    mask-image: radial-gradient(ellipse 90% 80% at 50% 40%, #000 30%, transparent 100%);
-    -webkit-mask-image: radial-gradient(ellipse 90% 80% at 50% 40%, #000 30%, transparent 100%);
+      linear-gradient(rgba(0,212,255,0.055) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(0,212,255,0.055) 1px, transparent 1px);
+    background-size: 46px 46px;
+    mask-image: radial-gradient(ellipse 95% 85% at 50% 40%, #000 25%, transparent 100%);
+    -webkit-mask-image: radial-gradient(ellipse 95% 85% at 50% 40%, #000 25%, transparent 100%);
   }
-  /* 扫描光线 */
-  .beam {
-    position: absolute; z-index: 1; pointer-events: none;
-    height: 1px; width: 130%;
-    background: linear-gradient(90deg, transparent, var(--accent-2), transparent);
-    filter: blur(0.5px); opacity: 0.6;
-    left: -15%;
-    animation: sweep 6s linear infinite;
+  /* —— 全息投影光晕 —— */
+  .glow {
+    position: fixed; z-index: 0; pointer-events: none; border-radius: 50%;
+    filter: blur(90px); opacity: 0.5;
   }
-  @keyframes sweep { 0% { top: 8%; } 50% { top: 92%; } 100% { top: 8%; } }
+  .glow.cyan { width: 520px; height: 520px; left: -140px; top: -120px; background: radial-gradient(circle, rgba(0,212,255,0.55), transparent 70%); }
+  .glow.violet { width: 560px; height: 560px; right: -160px; bottom: -140px; background: radial-gradient(circle, rgba(139,92,246,0.5), transparent 70%); }
 
-  /* 粒子 */
+  /* —— 扫描线 —— */
+  .scanline {
+    position: fixed; left: 0; right: 0; height: 1px; z-index: 1; pointer-events: none;
+    background: linear-gradient(90deg, transparent, var(--cyan), transparent);
+    box-shadow: 0 0 12px rgba(0,212,255,0.6);
+    opacity: 0.5; animation: scan 7s linear infinite;
+  }
+  @keyframes scan { 0% { top: -2%; } 100% { top: 102%; } }
+
   #particles { position: fixed; inset: 0; z-index: 1; pointer-events: none; }
 
-  /* 中央布局 */
+  /* —— 中央布局 —— */
   .stage {
-    position: relative; z-index: 3;
-    height: 100%; display: flex; flex-direction: column;
-    align-items: center; justify-content: center; gap: 22px;
-    padding: 24px;
+    position: relative; z-index: 3; height: 100%;
+    display: flex; flex-direction: column; align-items: center; justify-content: center;
+    gap: 24px; padding: 24px;
   }
-  .brand {
-    display: flex; flex-direction: column; align-items: center; gap: 6px;
-    animation: rise 0.8s cubic-bezier(0.2, 0.8, 0.2, 1);
-  }
-  .brand h1 {
-    font-size: 54px; font-weight: 800; letter-spacing: 6px;
-    background: linear-gradient(100deg, #fff 0%, var(--accent-2) 60%, var(--accent) 100%);
+  .brand { display: flex; flex-direction: column; align-items: center; gap: 8px; animation: rise .8s cubic-bezier(.2,.8,.2,1); }
+  .brand .logo {
+    font-size: 64px; font-weight: 800; letter-spacing: 10px;
+    background: linear-gradient(105deg, var(--cyan) 0%, var(--cyan-soft) 40%, var(--violet) 100%);
     -webkit-background-clip: text; background-clip: text; color: transparent;
-    text-shadow: 0 0 40px rgba(77,107,254,0.35);
+    filter: drop-shadow(0 0 24px rgba(0,212,255,0.45));
   }
-  .brand .sub { color: var(--muted); font-size: 13px; letter-spacing: 3px; }
+  .brand .sub { color: var(--muted); font-size: 12px; letter-spacing: 5px; text-transform: uppercase; }
+  .brand .sub b { color: var(--cyan); font-weight: 500; }
 
+  /* —— 玻璃拟态卡片 —— */
   .card {
-    width: 360px; max-width: 92vw;
-    background: var(--panel);
-    border: 1px solid rgba(122,162,255,0.18);
-    border-radius: 18px;
-    padding: 26px 26px 22px;
-    backdrop-filter: blur(14px);
-    -webkit-backdrop-filter: blur(14px);
-    box-shadow: 0 0 0 1px rgba(255,255,255,0.02) inset, 0 24px 60px rgba(0,0,0,0.45);
-    animation: rise 0.8s cubic-bezier(0.2, 0.8, 0.2, 1) 0.1s both;
+    width: 372px; max-width: 92vw; position: relative;
+    background: var(--bg-panel);
+    border: 1px solid var(--border);
+    border-radius: 20px; padding: 28px 28px 22px;
+    backdrop-filter: blur(18px); -webkit-backdrop-filter: blur(18px);
+    box-shadow: 0 0 0 1px rgba(255,255,255,0.03) inset, 0 24px 70px rgba(0,0,0,0.5), 0 0 60px rgba(0,212,255,0.07);
+    animation: rise .8s cubic-bezier(.2,.8,.2,1) .1s both;
   }
-  @keyframes rise { from { opacity: 0; transform: translateY(16px); } to { opacity: 1; transform: none; } }
+  .card::before {
+    content: ''; position: absolute; top: -1px; left: 12%; right: 12%; height: 1px;
+    background: linear-gradient(90deg, transparent, var(--cyan), var(--violet), transparent);
+    opacity: 0.8;
+  }
+  @keyframes rise { from { opacity: 0; transform: translateY(18px); } to { opacity: 1; transform: none; } }
 
   .field { margin-bottom: 16px; }
-  .field label { display: block; font-size: 12px; color: var(--muted); margin-bottom: 7px; letter-spacing: 1px; }
+  .field label { display: block; font-size: 11.5px; color: var(--muted); margin-bottom: 7px; letter-spacing: 1.5px; }
   .field input, .field select {
-    width: 100%; height: 42px;
-    background: rgba(8, 13, 26, 0.7);
-    border: 1px solid rgba(122,162,255,0.22);
-    border-radius: 10px;
-    color: var(--text); font-size: 14px; padding: 0 13px;
-    outline: none; transition: border-color 0.2s, box-shadow 0.2s;
+    width: 100%; height: 44px;
+    background: rgba(4, 8, 18, 0.75);
+    border: 1px solid rgba(0, 212, 255, 0.2);
+    border-radius: 11px; color: var(--text); font-size: 14px; padding: 0 13px;
+    outline: none; transition: border-color .25s, box-shadow .25s;
   }
+  .field input:hover, .field select:hover { border-color: rgba(0,212,255,0.45); }
   .field input:focus, .field select:focus {
-    border-color: var(--accent);
-    box-shadow: 0 0 0 3px rgba(77,107,254,0.18);
+    border-color: var(--cyan);
+    box-shadow: 0 0 0 3px rgba(0,212,255,0.16), 0 0 18px rgba(0,212,255,0.2);
   }
   .field select { appearance: none; cursor: pointer; }
-  .field select option { background: #0c1322; color: var(--text); }
+  .field select option { background: #0a1224; color: var(--text); }
 
   .btn {
-    width: 100%; height: 44px; margin-top: 4px;
-    border: none; border-radius: 10px; cursor: pointer;
-    font-size: 15px; font-weight: 600; letter-spacing: 2px;
-    color: #fff;
-    background: linear-gradient(100deg, var(--accent), var(--accent-2));
-    transition: opacity 0.2s, transform 0.1s;
+    width: 100%; height: 46px; margin-top: 4px; position: relative;
+    border: none; border-radius: 11px; cursor: pointer;
+    font-size: 15px; font-weight: 600; letter-spacing: 3px; color: #fff;
+    background: linear-gradient(100deg, var(--violet), var(--cyan));
+    box-shadow: 0 0 22px rgba(0,212,255,0.35);
+    overflow: hidden; transition: transform .15s, box-shadow .25s, filter .25s;
   }
-  .btn:hover { opacity: 0.92; }
+  .btn::after {
+    content: ''; position: absolute; inset: 0;
+    background: linear-gradient(110deg, transparent 30%, rgba(255,255,255,0.35) 50%, transparent 70%);
+    transform: translateX(-120%); transition: transform .6s;
+  }
+  .btn:hover { box-shadow: 0 0 34px rgba(139,92,246,0.55); filter: brightness(1.08); }
+  .btn:hover::after { transform: translateX(120%); }
   .btn:active { transform: scale(0.98); }
-  .btn:disabled { opacity: 0.5; cursor: not-allowed; }
+  .btn:disabled { opacity: 0.5; cursor: not-allowed; filter: none; }
 
   .status { margin-top: 14px; font-size: 12.5px; text-align: center; min-height: 18px; }
   .status.err { color: var(--danger); }
   .status.ok { color: var(--ok); }
-  .status.busy { color: var(--accent-2); }
+  .status.busy { color: var(--cyan); }
 
   .hint { margin-top: 12px; font-size: 11px; color: var(--muted); line-height: 1.6; text-align: center; }
-  .hint a { color: var(--accent-2); text-decoration: none; }
+  .hint a { color: var(--cyan); text-decoration: none; }
 
   .spinner {
     display: inline-block; width: 13px; height: 13px; margin-right: 6px;
     border: 2px solid rgba(255,255,255,0.3); border-top-color: #fff;
-    border-radius: 50%; animation: spin 0.7s linear infinite; vertical-align: -2px;
+    border-radius: 50%; animation: spin .7s linear infinite; vertical-align: -2px;
   }
   @keyframes spin { to { transform: rotate(360deg); } }
+
+  /* —— 加载遮罩（登录成功后） —— */
+  #loading {
+    position: fixed; inset: 0; z-index: 10; display: none;
+    flex-direction: column; align-items: center; justify-content: center; gap: 28px;
+    background: radial-gradient(1000px 700px at 50% 45%, #0c1430 0%, var(--bg-0) 60%);
+  }
+  #loading.show { display: flex; }
+  .ring {
+    width: 88px; height: 88px; border-radius: 50%; position: relative;
+    border: 2px solid rgba(0,212,255,0.15);
+    border-top-color: var(--cyan); border-right-color: var(--violet);
+    animation: spin 1s linear infinite;
+    box-shadow: 0 0 40px rgba(0,212,255,0.25);
+  }
+  .ring::after {
+    content: ''; position: absolute; inset: 12px; border-radius: 50%;
+    border: 2px solid rgba(139,92,246,0.2); border-bottom-color: var(--violet);
+    animation: spin 1.6s linear infinite reverse;
+  }
+  #loading .ltxt { color: var(--cyan); font-size: 13px; letter-spacing: 4px; text-shadow: 0 0 12px rgba(0,212,255,0.6); }
+  #loading .lsmall { color: var(--muted); font-size: 11px; letter-spacing: 2px; }
 </style>
 </head>
 <body>
   <div class="grid"></div>
-  <div class="beam"></div>
+  <div class="glow cyan"></div>
+  <div class="glow violet"></div>
+  <div class="scanline"></div>
   <canvas id="particles"></canvas>
 
   <div class="stage">
     <div class="brand">
-      <h1>DSH</h1>
-      <div class="sub">DEEPSEEK HARNESS · INTEL EDITION</div>
+      <div class="logo">DSH</div>
+      <div class="sub">DeepSeek Harness · <b>Intel Edition</b></div>
     </div>
 
     <div class="card">
       <form id="loginForm" autocomplete="off">
         <div class="field">
           <label>用户名</label>
-          <input id="username" type="text" placeholder="用于标识你的会话" autocomplete="username">
+          <input id="username" type="text" placeholder="标识你的会话身份" autocomplete="username">
         </div>
         <div class="field">
-          <label>API Key（所选提供商）</label>
+          <label>API KEY（所选提供商）</label>
           <input id="apiKey" type="password" placeholder="sk-..." autocomplete="new-password">
         </div>
         <div class="field">
           <label>基础模型</label>
           <select id="model">
-            <option value="deepseek-v4-pro">deepseek-v4-pro（推荐 · 深度推理）</option>
-            <option value="deepseek-v4-flash">deepseek-v4-flash（快速响应）</option>
-            <option value="deepseek-flash">deepseek-flash（V4.1 Flash）</option>
+            <option value="deepseek-v4-pro">deepseek-v4-pro · 深度推理（推荐）</option>
+            <option value="deepseek-v4-flash">deepseek-v4-flash · 快速响应</option>
+            <option value="deepseek-flash">deepseek-flash · V4.1 Flash</option>
             <option value="__custom__">自定义 OpenAI 兼容模型…</option>
           </select>
         </div>
         <div id="customFields" style="display:none">
           <div class="field">
-            <label>Base URL（OpenAI 兼容端点）</label>
+            <label>BASE URL（OpenAI 兼容端点）</label>
             <input id="baseURL" type="text" placeholder="https://api.openai.com/v1">
           </div>
           <div class="field">
@@ -178,24 +218,30 @@
     </div>
   </div>
 
+  <div id="loading">
+    <div class="ring"></div>
+    <div class="ltxt">初始化 DEEPSEEK HARNESS</div>
+    <div class="lsmall" id="loadSmall">正在加载插件…</div>
+  </div>
+
 <script>
   const $ = (id) => document.getElementById(id);
   const status = $('status');
   const btn = $('loginBtn');
   let hasSavedKey = false;
 
-  function setStatus(msg, cls) {
-    status.className = 'status ' + (cls || '');
-    status.innerHTML = msg;
-  }
+  function setStatus(msg, cls) { status.className = 'status ' + (cls || ''); status.innerHTML = msg; }
 
-  // 打开 DeepSeek 开放平台
   $('openPlatform').addEventListener('click', (e) => {
     e.preventDefault();
     if (window.dshDesktop && window.dshDesktop.openExternal) window.dshDesktop.openExternal('https://platform.deepseek.com');
   });
 
-  // 预填已保存的用户名与模型（不填 key）
+  $('model').addEventListener('change', () => {
+    $('customFields').style.display = $('model').value === '__custom__' ? 'block' : 'none';
+  });
+
+  // 预填已保存配置
   (async () => {
     try {
       if (window.dshDesktop && window.dshDesktop.getConfig) {
@@ -219,20 +265,14 @@
     } catch (e) {}
   })();
 
-  // 模型下拉切换：自定义模型时展开 Base URL / 模型 ID 输入
-  $('model').addEventListener('change', () => {
-    const isCustom = $('model').value === '__custom__';
-    $('customFields').style.display = isCustom ? 'block' : 'none';
-  });
-
   async function doLogin(payload) {
     btn.disabled = true;
     setStatus('<span class="spinner"></span>正在验证 API Key 并初始化…', 'busy');
     try {
       const res = await window.dshDesktop.login(payload);
       if (res && res.ok) {
-        setStatus('验证通过，正在进入…', 'ok');
-        // 主进程会通过 loadURL 自动导航到 dsh 主界面（保证 token cookie 正确写入）
+        $('loading').classList.add('show');
+        $('loadSmall').textContent = '正在加载核心插件与模型目录…';
       } else {
         setStatus((res && res.error) || '登录失败', 'err');
         btn.disabled = false;
@@ -243,7 +283,7 @@
     }
   }
 
-  $('loginForm').addEventListener('submit', async (e) => {
+  $('loginForm').addEventListener('submit', (e) => {
     e.preventDefault();
     const username = $('username').value.trim();
     const apiKey = $('apiKey').value.trim();
@@ -257,50 +297,36 @@
       const modelId = $('modelId').value.trim();
       if (!baseURL) { setStatus('请输入 Base URL', 'err'); return; }
       if (!modelId) { setStatus('请输入模型 ID', 'err'); return; }
-      await doLogin({ providerType: 'custom', username, apiKey, baseURL, modelId });
+      doLogin({ providerType: 'custom', username, apiKey, baseURL, modelId });
       return;
     }
-    await doLogin({ providerType: 'deepseek', username, apiKey, model });
+    doLogin({ providerType: 'deepseek', username, apiKey, model });
   });
 
-  // 粒子动画
+  // —— 粒子 + 连线光效 ——
   (function particles() {
     const c = $('particles'), ctx = c.getContext('2d');
     let W, H, pts = [];
     function resize() { W = c.width = innerWidth; H = c.height = innerHeight; }
     resize(); addEventListener('resize', resize);
-    const N = 60;
+    const N = 70;
     for (let i = 0; i < N; i++) {
-      pts.push({
-        x: Math.random() * innerWidth, y: Math.random() * innerHeight,
-        vx: (Math.random() - 0.5) * 0.25, vy: (Math.random() - 0.5) * 0.25,
-        r: Math.random() * 1.6 + 0.4,
-      });
+      pts.push({ x: Math.random()*innerWidth, y: Math.random()*innerHeight, vx:(Math.random()-.5)*.3, vy:(Math.random()-.5)*.3, r: Math.random()*1.7+.5, c: Math.random() < .5 ? '0,212,255' : '139,92,246' });
     }
     (function draw() {
-      ctx.clearRect(0, 0, W, H);
+      ctx.clearRect(0,0,W,H);
       for (const p of pts) {
         p.x += p.vx; p.y += p.vy;
-        if (p.x < 0 || p.x > W) p.vx *= -1;
-        if (p.y < 0 || p.y > H) p.vy *= -1;
-        ctx.beginPath();
-        ctx.arc(p.x, p.y, p.r, 0, Math.PI * 2);
-        ctx.fillStyle = 'rgba(122,162,255,0.5)';
-        ctx.fill();
+        if (p.x<0||p.x>W) p.vx*=-1; if (p.y<0||p.y>H) p.vy*=-1;
+        ctx.beginPath(); ctx.arc(p.x,p.y,p.r,0,Math.PI*2);
+        ctx.fillStyle = `rgba(${p.c},0.55)`; ctx.fill();
       }
-      // 连线
-      for (let i = 0; i < N; i++) {
-        for (let j = i + 1; j < N; j++) {
-          const a = pts[i], b = pts[j];
-          const dx = a.x - b.x, dy = a.y - b.y;
-          const d = dx * dx + dy * dy;
-          if (d < 110 * 110) {
-            ctx.beginPath();
-            ctx.moveTo(a.x, a.y); ctx.lineTo(b.x, b.y);
-            ctx.strokeStyle = 'rgba(77,107,254,' + (0.12 * (1 - d / (110 * 110))) + ')';
-            ctx.lineWidth = 0.6;
-            ctx.stroke();
-          }
+      for (let i=0;i<N;i++) for (let j=i+1;j<N;j++) {
+        const a=pts[i], b=pts[j], dx=a.x-b.x, dy=a.y-b.y, d=dx*dx+dy*dy;
+        if (d < 120*120) {
+          ctx.beginPath(); ctx.moveTo(a.x,a.y); ctx.lineTo(b.x,b.y);
+          ctx.strokeStyle = `rgba(0,212,255,${0.13*(1-d/(120*120))})`;
+          ctx.lineWidth = 0.6; ctx.stroke();
         }
       }
       requestAnimationFrame(draw);
