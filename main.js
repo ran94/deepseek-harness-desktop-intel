@@ -123,9 +123,9 @@ function saveAppConfig(dshHome, cfg) {
   fs.writeFileSync(path.join(dshHome, 'app-config.json'), JSON.stringify(cfg, null, 2), { mode: 0o600 });
 }
 
-/** 生成 DeepSeek 官方默认模型 patch */
+/** 生成 DeepSeek 官方默认模型 patch（config 为整体替换，须写全 provider + model） */
 function buildDeepSeekPatch(model) {
-  return `- id: agent-default-model\n  config:\n    model: ${model}\n`;
+  return `- id: agent-default-model\n  config:\n    provider: deepseek-official\n    model: ${model}\n`;
 }
 
 /** 生成自定义 OpenAI 兼容 provider patch（pi-ai 适配器 + 默认模型指向） */
@@ -238,8 +238,11 @@ function startDsh(patchContent, extraEnv) {
       env[k] = v;
     }
 
-    const args = [DSH_BIN, '--profile', 'web', '--no-open', '--host', '127.0.0.1', '--port', '0'];
+    // 注意：--patch 是 launcher 参数，必须放在 --profile 之前；
+    // 放在之后会被当作 web app 参数而报 unknown option '--patch'。
+    const args = [DSH_BIN];
     if (modelPatch) args.push('--patch', modelPatch);
+    args.push('--profile', 'web', '--no-open', '--host', '127.0.0.1', '--port', '0');
 
     dshProc = spawn(nodeBin, args, {
       env,
