@@ -10,11 +10,12 @@
  *      `dsh web: http://127.0.0.1:PORT/?token=...`）；
  *   3. 用 Electron 的 BrowserWindow 加载该回环地址，天然同源、零 CORS / 零鉴权改造。
  *
- * 为什么必须内置 Node 24：
- *   dsh 依赖多项 Node 24 特性（import.meta.main、node:zlib.createZstdCompress、
+ * 为什么必须内置 Node 22 LTS（>=22.19）而非系统 Node 或 Node 24：
+ *   dsh 的 JS 依赖多项较新特性（import.meta.main、node:zlib zstd、
  *   node:util.getSystemErrorMessage、node:module.stripTypeScriptTypes 等），
- *   系统自带 Node 22 不提供这些；官方桌面版仅发布 Apple Silicon + Windows x64，
- *   因此这里打包 darwin-x64 的 Electron 与 Node 24，供 Intel MacBook Pro 稳定运行。
+ *   旧版系统 Node 不提供；同时 dsh 的原生模块 node-addon-require-builtin 的
+ *   prebuilt 二进制是 NAPI v9（Node 22 ABI），与 Node 24 的 NAPI v10 不兼容。
+ *   因此打包 Node 22 LTS 最新版，兼顾 JS 特性与原生 ABI。
  */
 
 const { app, BrowserWindow, dialog, shell } = require('electron');
@@ -63,6 +64,32 @@ function resolveDshHome() {
 }
 
 /**
+ * 读取 $DSH_HOME/.env（可选），解析 KEY=VALUE 供 dsh 使用。
+ * 用于让用户在桌面应用里配置 DEEPSEEK_API_KEY 等环境变量，无需改系统环境。
+ */
+function loadDotEnv(dshHome) {
+  const result = {};
+  try {
+    const envPath = path.join(dshHome, '.env');
+    if (!fs.existsSync(envPath)) return result;
+    const content = fs.readFileSync(envPath, 'utf8');
+    for (const line of content.split('\n')) {
+      const trimmed = line.trim();
+      if (!trimmed || trimmed.startsWith('#')) continue;
+      const eq = trimmed.indexOf('=');
+      if (eq <= 0) continue;
+      const key = trimmed.slice(0, eq).trim();
+      let value = trimmed.slice(eq + 1).trim();
+      if ((value.startsWith('"') && value.endsWith('"')) || (value.startsWith("'") && value.endsWith("'"))) {
+        value = value.slice(1, -1);
+      }
+      if (key) result[key] = value;
+    }
+  } catch (_) { /* ignore */ }
+  return result;
+}
+
+/**
  * 清理上次异常退出遗留的原子写锁（如 .credentials.yaml.lock 及其 takeover 变体）。
  * 这些锁由 dsh 的 dsh-atomic-write 以 wx 标志创建，进程被强杀时会残留，
  * 导致下一次 dsh 启动在 connection 插件处等锁超时。应用自身独占 dsh 生命周期，
@@ -101,6 +128,11 @@ function startDsh() {
       // 关键：清空 NODE_OPTIONS，避免宿主的 Node 拦截 shim 注入到 dsh 导致挂起。
       NODE_OPTIONS: '',
     });
+    // 合并 $DSH_HOME/.env 中定义的环境变量（如 DEEPSEEK_API_KEY），
+    // 仅当进程环境未设置时才生效，方便在桌面应用里配置模型 API key。
+    for (const [k, v] of Object.entries(loadDotEnv(dshHome))) {
+      if (!(k in env)) env[k] = v;
+    }
 
     const args = [DSH_BIN, '--profile', 'web', '--no-open', '--host', '127.0.0.1', '--port', '0'];
     dshProc = spawn(nodeBin, args, {

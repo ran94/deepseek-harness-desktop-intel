@@ -8,7 +8,7 @@
 ## 特性
 
 - 双击即用的原生桌面窗口，无需终端
-- 内置官方 Node 24 运行时与官方 dsh 包，完全离线可运行
+- 内置官方 Node 22 LTS 运行时与官方 dsh 包，完全离线可运行
 - 零架构改动：不 fork、不套壳，直接运行官方 `dsh --profile web`
 - 与命令行 `dsh` 共享配置（默认数据目录 `~/.dsh`）
 
@@ -27,7 +27,7 @@ cp .npmrc.example .npmrc
 # 2. 安装依赖
 npm install
 
-# 3. 下载 Node 24 运行时并打包（一条命令，自动完成）
+# 3. 下载 Node 22 LTS 运行时并打包（一条命令，自动完成）
 npm run pack
 
 # 产物：dist/mac/DeepSeek Harness.app
@@ -36,7 +36,7 @@ npm run pack
 也可以手动分步执行：
 
 ```bash
-npm run setup    # 下载 Node 24 darwin-x64 到 runtime/
+npm run setup    # 下载 Node 22 LTS darwin-x64 到 runtime/
 npm run pack     # electron-builder 打包为 .app
 ```
 
@@ -56,7 +56,7 @@ open "dist/mac/DeepSeek Harness.app"
 ├── preload.js           # preload（安全隔离）
 ├── package.json         # 依赖与 electron-builder 打包配置
 ├── scripts/
-│   ├── setup-node.sh    # 下载 Node 24 darwin-x64 到 runtime/
+│   ├── setup-node.sh    # 下载 Node 22 LTS darwin-x64 到 runtime/
 │   ├── icon_gen.py      # 生成应用图标
 │   └── dsh-runner.mjs   # （可选）绕过 import.meta.main 的启动器
 ├── build/icon.png       # 应用图标
@@ -65,7 +65,7 @@ open "dist/mac/DeepSeek Harness.app"
 
 ## 工作原理
 
-Electron 宿主 → 内置 Node 24 运行 `dsh --profile web --no-open --port 0` → 从 stdout
+Electron 宿主 → 内置 Node 22 LTS 运行 `dsh --profile web --no-open --port 0` → 从 stdout
 解析带 token 的启动 URL → BrowserWindow 加载本地回环地址（同源、零 CORS/鉴权改造）。
 
 详见 [BUILD.md](./BUILD.md)。

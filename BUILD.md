@@ -4,7 +4,7 @@
 **Intel 芯片 MacBook Pro（x86_64）** 上稳定运行的桌面应用。
 
 官方桌面版只发布了 **Apple Silicon (arm64) + Windows x64**，没有 Intel macOS 版。
-本项目补齐这一缺口：Electron 宿主 + 内置官方 Node 24 运行时 + dsh 官方 npm 包，
+本项目补齐这一缺口：Electron 宿主 + 内置官方 Node 22 LTS 运行时 + dsh 官方 npm 包，
 全部构建为 **x86_64**。
 
 ---
@@ -12,7 +12,7 @@
 ## 1. 成果概览
 
 - 产物：`dist/mac/DeepSeek Harness.app`（约 1.0 GB，含完整运行时，双击即用）
-- 已验证：应用启动 → 内置 Node 24 拉起 dsh → 解析带 token 的启动 URL → Electron
+- 已验证：应用启动 → 内置 Node 22 LTS 拉起 dsh → 解析带 token 的启动 URL → Electron
   窗口加载本地回环页面（日志见 `dsh-desktop.log` 的 `[web] 页面加载完成`）
 - 本机环境：macOS 13.7.8 (Ventura)、Intel Core i7-7567U、MacBookPro14,2、16GB
 
@@ -23,11 +23,11 @@
 ```
 ┌─────────────────────────────── DeepSeek Harness.app ───────────────────────────────┐
 │  Electron 主进程 (main.js, x64)                                                      │
-│    1. 找到内置 Node 24 → 清理陈旧锁 → spawn dsh                                     │
+│    1. 找到内置 Node 22 LTS → 清理陈旧锁 → spawn dsh                                     │
 │    2. 解析 stdout 中的 "dsh web: http://127.0.0.1:PORT/?token=..."                  │
 │    3. BrowserWindow.loadURL(token URL) → 同源回环，零 CORS/零鉴权改造                 │
 │                                                                                      │
-│  Resources/node-runtime/bin/node   ← 官方 Node v24.22.2 darwin-x64（内置）            │
+│  Resources/node-runtime/bin/node   ← 官方 Node v22.23.4 darwin-x64（内置）            │
 │  Resources/app/node_modules/@deepseek-ai/dsh/**  ← 官方 npm 包（生产依赖，未走 asar）│
 └──────────────────────────────────────────────────────────────────────────────────────┘
 ```
@@ -47,7 +47,7 @@
 |---|---|---|
 | CPU 架构 | arm64 | **x86_64** |
 | Electron | darwin-arm64 | **darwin-x64** |
-| Node 运行时 | 内置 arm64 Node | **内置 x64 Node 24** |
+| Node 运行时 | 内置 arm64 Node | **内置 x64 Node 22 LTS** |
 | dsh 原生依赖 | arm64 二进制（如 `sherpa-onnx-darwin-arm64`） | **`sherpa-onnx-darwin-x64`**（75MB 语音/ML 原生库，随 npm 自动装 x64 版） |
 
 dsh 的 npm 包本身是纯 JS（无 `os`/`cpu` 平台锁），会按当前平台自动装对应的原生可选依赖；
@@ -58,13 +58,17 @@ dsh 的 npm 包本身是纯 JS（无 `os`/`cpu` 平台锁），会按当前平�
 
 ## 4. 关键技术决策（踩坑记录）
 
-### 4.1 dsh 需要 Node 24 特性，系统 Node 22 不够
-`dsh` 的代码用了多项 **Node 24** 能力，系统自带的 Node 22.11 会直接静默失败：
-- `import.meta.main`（bin.js 入口判断，Node 22 里为 `undefined` → CLI 不执行）
-- `node:zlib.createZstdCompress` / `node:util.getSystemErrorMessage` /
-  `node:module.stripTypeScriptTypes`（插件 import 时 `SyntaxError`）
+### 4.1 Node 运行时版本必须精确落在 Node 22 LTS（≥22.19），既不能更老也不能用 24
+dsh 同时受两个约束：
+- **JS 层**：用了多项较新特性 —— `import.meta.main`（bin.js 入口判断）、
+  `node:zlib.createZstdCompress`、`node:util.getSystemErrorMessage`、
+  `node:module.stripTypeScriptTypes`。这些在 **Node 22.19 起才回移植**；
+  更老的系统 Node 22.11 会静默失败（`import.meta.main` 为 `undefined` → CLI 不执行）。
+- **原生层**：`node-addon-require-builtin` 的 prebuilt 二进制是 **NAPI v9（Node 22 ABI）**，
+  在 Node 24（NAPI v10）下加载报 `symbol not found: _napi_create_error`。
 
-→ **方案：把官方 Node v24.22.2（darwin-x64，LTS "Krypton"）打包进 app**，运行时用它跑 dsh。
+→ **方案：内置官方 Node v22.23.4（darwin-x64，Node 22 LTS 最新版）**，同时满足 JS 特性与原生 ABI。
+（这也正是 dsh 官方声明的 `Node ^22.19.0` 要求。）
 
 ### 4.2 宿主的 Node 拦截 shim 会让 dsh 挂起
 某些开发环境通过 `NODE_OPTIONS` 注入 fs 拦截 shim，被 dsh 子进程继承后会在插件加载阶段
@@ -90,11 +94,11 @@ cd /Users/ranbi/Desktop/DSforINTEl
 # 0) 前置：Node ≥ 18（用系统 node/npm 即可，仅用于安装依赖与打包）
 node -v && npm -v
 
-# 1) 下载并解压官方 Node 24 darwin-x64（作为应用内置运行时）
+# 1) 下载并解压官方 Node 22 LTS darwin-x64（作为应用内置运行时）
 curl -sL -o /tmp/node.tar.gz \
-  https://npmmirror.com/mirrors/node/v24.22.2/node-v24.22.2-darwin-x64.tar.gz
+  https://npmmirror.com/mirrors/node/v22.23.4/node-v22.23.4-darwin-x64.tar.gz
 mkdir -p runtime && tar -xzf /tmp/node.tar.gz -C runtime/
-#   → 得到 runtime/node-v24.22.2-darwin-x64/
+#   → 得到 runtime/node-v22.23.4-darwin-x64/
 
 # 2) 安装依赖（含 dsh 与 Electron；走国内镜像，见 .npmrc）
 npm install --no-audit --no-fund
@@ -140,7 +144,7 @@ DSforINTEl/
 ├── preload.js               # 预留 preload（安全隔离，无特权注入）
 ├── package.json             # 依赖 + electron-builder 打包配置
 ├── .npmrc                   # 国内镜像 + 独立缓存
-├── runtime/node-v24.22.2-darwin-x64/   # 内置 Node 24 运行时（打包进 app）
+├── runtime/node-v22.23.4-darwin-x64/   # 内置 Node 22 LTS 运行时（打包进 app）
 ├── scripts/
 │   ├── icon_gen.py          # 生成应用图标（PIL）
 │   └── dsh-runner.mjs       # （可选）绕过 import.meta.main 的启动器
@@ -151,7 +155,7 @@ DSforINTEl/
 
 ## 8. 已知限制 / 可选优化
 
-- **体积**：约 1.0 GB（Electron ~200MB + dsh 依赖 ~512MB + Node 24 ~200MB）。可进一步：
+- **体积**：约 1.0 GB（Electron ~200MB + dsh 依赖 ~512MB + Node 22 LTS ~200MB）。可进一步：
   - `strip` 内置 node 二进制（120MB→约 50MB）；
   - 删除 Electron 多余 locale（约省 100MB）；
   - 用 `asar` + `asarUnpack` 只解包 dsh 运行时必需文件。

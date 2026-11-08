@@ -24,3 +24,6 @@ runtime/
 # ---- 临时文件 ----
 .tmp/
 *.tmp
+
+# ---- 图标生成中间产物 ----
+build/icon.iconset/

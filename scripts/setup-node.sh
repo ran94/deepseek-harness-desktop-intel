@@ -1,9 +1,13 @@
 #!/usr/bin/env bash
-# 下载官方 Node 24（darwin-x64）运行时到 runtime/，供 electron-builder 打包进应用。
-# dsh 依赖多项 Node 24 特性，系统 Node 22 不满足，故需要内置 Node 24。
+# 下载官方 Node 22 LTS（darwin-x64）运行时到 runtime/，供 electron-builder 打包进应用。
+# 为什么是 Node 22 而非 24：
+#   - dsh 的 JS 依赖 import.meta.main / node:zlib zstd 等特性（Node 22.19+ 已回移植）；
+#   - dsh 的原生模块 node-addon-require-builtin 的 prebuilt 是 NAPI v9（Node 22 ABI），
+#     与 Node 24 的 NAPI v10 不兼容（符号 _napi_create_error 缺失）。
+#   - 因此必须用 Node 22 LTS 最新版（>=22.19），同时满足 JS 特性与原生 ABI。
 set -euo pipefail
 
-NODE_VERSION="v24.22.2"
+NODE_VERSION="v22.23.4"
 NODE_DIST="node-${NODE_VERSION}-darwin-x64"
 NODE_TARBALL="${NODE_DIST}.tar.gz"
 # 优先使用 npmmirror 镜像（中国大陆加速）；如需官方源可改为 https://nodejs.org/dist/${NODE_VERSION}
